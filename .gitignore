@@ -11,8 +11,7 @@ riderModule.iml
 .env.*
 todo.md
 
-/Extensions/DebugExtensions
-
+**/Extensions/DebugExtensions.cs
 
 # git rm -r -f --cached .
 # git add .
