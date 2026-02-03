@@ -1,5 +1,5 @@
 ﻿@page "/units/{UnitId:int}"
-@attribute [Authorize(Policy = "Admin")]
+@attribute [Authorize(Policy = "Active")]
 @inject NavigationManager NavigationManager
 @inject IUnitService UnitService
 @inject IDialogService DialogService
