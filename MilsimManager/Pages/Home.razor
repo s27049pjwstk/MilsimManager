@@ -1,8 +1,2 @@
 ﻿@page "/"
-@inject NavigationManager NavigationManager
-
-<PageTitle>Home</PageTitle>
-
-@code {
-    protected override void OnInitialized() => NavigationManager.NavigateTo("/users", forceLoad: false);
-}
+@attribute [Authorize]

@@ -1,10 +1,9 @@
 ﻿@page "/units/{UnitId:int}"
-
+@attribute [Authorize(Policy = "Admin")]
 @inject NavigationManager NavigationManager
 @inject IUnitService UnitService
 @inject IDialogService DialogService
 
-<PageTitle>Unit</PageTitle>
 @if (_unit is null) {
     <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
         <MudProgressCircular Indeterminate="true"/>

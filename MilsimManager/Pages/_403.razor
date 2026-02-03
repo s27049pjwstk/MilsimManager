@@ -1,0 +1,24 @@
+﻿@page "/403"
+@layout BlankLayout
+@inject ISnackbar Snackbar
+@inject IJSRuntime JsRuntime
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16 text-center">
+    <MudText Typo="Typo.h3">
+        403 - Forbidden
+    </MudText>
+</MudContainer>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (!firstRender) return;
+
+        Snackbar.Add("403 Forbidden", Severity.Error);
+        await JsRuntime.InvokeVoidAsync("history.back");
+    }
+}
+
+@*todo fixme Snackbar seems to work unreliably here
+on hard navigation, it doesnt work
+on soft navigation, it works fine
+*@

@@ -1,16 +1,8 @@
 ﻿@inherits LayoutComponentBase
-@inject IWebHostEnvironment Env
-
-<MudThemeProvider IsDarkMode="true"/>
-<MudPopoverProvider/>
-<MudDialogProvider/>
-<MudSnackbarProvider/>
 
 <MudLayout>
     <AppErrorBoundary>
-        <MudDrawer @bind-Open="@_open"
-                   Class="pa-2"
-                   Elevation="1">
+        <MudDrawer @bind-Open="@_open" Class="pa-2" Elevation="1">
             <NavMenu/>
             <MudStack Spacing="2">
                 <UserBox/>
@@ -25,6 +17,7 @@
 
         <MudMainContent Class="pa-4">
             <MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+                <PageTitle>MilsimManager</PageTitle>
                 <div>
                     @Body
                 </div>

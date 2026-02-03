@@ -1,0 +1,57 @@
+﻿@page "/dev"
+@layout BlankLayout
+@inject IHostEnvironment Env
+@inject NavigationManager NavigationManager
+
+@if (Env.IsDevelopment()) {
+    <MudStack Class="d-flex justify-center pt-16">
+        <MudStack Class="d-flex justify-center" Row="true">
+            <MudIconButton Icon="@Icons.Material.Filled.Login"
+                           Size="Size.Medium"
+                           Color="Color.Default"
+                           Href="@NavigationManager.GetUriWithQueryParameters("/login", new Dictionary<string, object?> {
+                                     ["ReturnUrl"] = ReturnUrl
+                                 })"/>
+            <MudIconButton Icon="@Icons.Material.Filled.Block"
+                           Size="Size.Medium"
+                           Color="Color.Default"
+                           Href="@NavigationManager.GetUriWithQueryParameters("/dev/login", new Dictionary<string, object?> {
+                                     ["AuthLevel"] = 0,
+                                     ["ReturnUrl"] = ReturnUrl
+                                 })"/>
+            <MudIconButton Icon="@Icons.Material.Filled.Person"
+                           Size="Size.Medium"
+                           Color="Color.Default"
+                           Href="@NavigationManager.GetUriWithQueryParameters("/dev/login", new Dictionary<string, object?> {
+                                     ["AuthLevel"] = 1,
+                                     ["ReturnUrl"] = ReturnUrl
+                                 })"/>
+            <MudIconButton Icon="@Icons.Material.Filled.AdminPanelSettings"
+                           Size="Size.Medium"
+                           Color="Color.Default"
+                           Href="@NavigationManager.GetUriWithQueryParameters("/dev/login", new Dictionary<string, object?> {
+                                     ["AuthLevel"] = 2,
+                                     ["ReturnUrl"] = ReturnUrl
+                                 })"/>
+        </MudStack>
+    </MudStack>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "ReturnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    protected override void OnParametersSet() {
+        if (string.IsNullOrWhiteSpace(ReturnUrl)
+            || !ReturnUrl.StartsWith('/')
+            || ReturnUrl.StartsWith("/dev", StringComparison.OrdinalIgnoreCase)
+            || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase)) {
+            ReturnUrl = null;
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!firstRender) return;
+        if (!Env.IsDevelopment()) NavigationManager.NavigateTo("/404", true, true);
+    }
+}

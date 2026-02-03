@@ -1,5 +1,5 @@
 ﻿@page "/users/{UserId:int}"
-
+@attribute [Authorize(Policy = "Active")]
 @inject NavigationManager NavigationManager
 @inject IUserService UserService
 @inject IClipboardService ClipboardService
@@ -21,6 +21,7 @@
                                    Color="Color.Dark">
                         <MudIcon Style="width: 100%; height: 100%;" Icon="@Icons.Material.Rounded.Person"/>
                     </MudIconButton>
+                    @*todo button should only work for when you are the user that is displayed on this page*@
                 </MudAvatar>
             </MudPaper>
 
@@ -51,8 +52,10 @@
                         @_user.Status
                     </MudText>
                     <MudSpacer/>
-
-                    <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"/>
+                    <AuthorizeView Policy="Admin">
+                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"/>
+                        @*todo there should be a separate edit ability for this user and for admins; This user should be able to self-set his LOA, while admins should be able to set him active/inactive*@
+                    </AuthorizeView>
                 </MudButton>
                 <MudButton FullWidth="true" Variant="Variant.Text" Class="justify-start rounded-0"
                            Ripple="@(_user.Unit is not null)"
@@ -73,12 +76,10 @@
                         </MudText>
                     </MudStack>
                     <MudSpacer/>
-                    <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
-                                   OnClick="@OpenUserAssignmentDialog"/>
+                    <AuthorizeView Policy="Admin">
+                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit" OnClick="@OpenUserAssignmentDialog"/>
+                    </AuthorizeView>
                 </MudButton>
-                @*todo display edit buttons only if self or authenticated*@
-
-                @*todo edit buttons below as well*@
             </MudPaper>
             <MudPaper Class="py-2" Elevation="2">
                 <MudText Style="padding-left: 8px" Typo="Typo.caption" Class="mud-text-secondary">Information</MudText>
@@ -98,8 +99,10 @@
                         @(_user.SteamId ?? "None")
                     </MudText>
                     <MudSpacer/>
-
-                    <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"/>
+                    <AuthorizeView Policy="Admin">
+                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"/>
+                        @*todo this should also be available to current user as self-action*@
+                    </AuthorizeView>
                 </MudButton>
                 <MudButton FullWidth="true" Ripple="@(_user.DiscordId is not null)" Variant="Variant.Text"
                            Class="justify-start rounded-0"
@@ -114,7 +117,6 @@
                                  Icon="@Icons.Material.Rounded.ContentCopy"/>
                     }
                 </MudButton>
-
             </MudPaper>
             <MudPaper Class="pa-2" Elevation="2">
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">Certifications</MudText>
@@ -129,29 +131,29 @@
                     </MudList>
                 }
             </MudPaper>
-            <MudPaper Class="pa-2" Elevation="2">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Admin Note</MudText>
-                <MudDivider/>
-                @if (string.IsNullOrWhiteSpace(_user.Note)) {
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">None</MudText>
-                } else {
-                    <MudText Typo="Typo.body2">@_user.Note</MudText>
-                }
-            </MudPaper>
+            <AuthorizeView Policy="Admin">
+                <MudPaper Class="pa-2" Elevation="2">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Admin Note</MudText>
+                    <MudDivider/>
+                    @if (string.IsNullOrWhiteSpace(_user.Note)) {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">None</MudText>
+                    } else {
+                        <MudText Typo="Typo.body2">@_user.Note</MudText>
+                    }
+                </MudPaper>
+            </AuthorizeView>
         </MudStack>
         <MudStack>
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
                 <MudText Class="py-6" Typo="Typo.h2">@_user?.Name</MudText>
-                <MudChip T="string" Size="Size.Large"
-                         Color="@(_user.Status switch { "LOA" => Color.Primary, "Active" => Color.Success, _ => Color.Dark })"> @*todo fixme make a func/prop in model or make a global enum or use number instead of string in genereal*@
+                <MudChip T="string" Size="Size.Large" Color="@GetStatusColor(_user.Status)">
                     @_user.Status
                 </MudChip>
             </MudStack>
-            @*todo add content here*@
-            @*todo fixme*@
             <MudPaper Class="pa-3">
                 <MudTabs Rounded="true" Elevation="0">
                     <MudTabPanel Text="Awards">
+                        @*todo implement all of these*@
                     </MudTabPanel>
                     <MudTabPanel Text="Events">
                     </MudTabPanel>
@@ -168,11 +170,7 @@
 }
 
 
-
-
-
 @code {
-
     [Parameter]
     public int UserId { get; set; }
 
@@ -193,13 +191,11 @@
 
     private static Color GetStatusColor(string? status) => status switch {
         "LOA" => Color.Primary, "Active" => Color.Success, _ => Color.Dark
-    };
-
+    }; //todo move this to model or a extension?
 
     private async Task OpenUserAssignmentDialog() {
         var dialog = await DialogService.ShowAsync<UserAssignmentDialog>("", new DialogParameters { ["User"] = _user });
         var result = await dialog.Result;
         if (!(result?.Canceled ?? true)) _user = await UserService.GetByIdAsync(_user!.Id);
     }
-
 }

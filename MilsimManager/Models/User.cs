@@ -24,6 +24,8 @@ public class User {
     public string? Note { get; set; }
 
     public bool Active { get; set; }
+    
+    public bool Admin { get; set; }
 
     public int? RankId { get; set; }
     public Rank? Rank { get; set; }

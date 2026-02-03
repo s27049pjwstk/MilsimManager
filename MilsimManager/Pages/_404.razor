@@ -1,21 +1,8 @@
 ﻿@page "/404"
-@inject NavigationManager NavigationManager
-
-<PageTitle>Page Not Found</PageTitle>
+@layout BlankLayout
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16 text-center">
     <MudText Typo="Typo.h3" GutterBottom="true">
-        404 – Page not found
+        404 - Page Not Found
     </MudText>
-
-    <MudButton Variant="Variant.Filled"
-               Color="Color.Error"
-               StartIcon="@Icons.Material.Filled.Home"
-               Href="/">
-        Go to homepage
-    </MudButton>
 </MudContainer>
-
-@code {
-    protected override void OnInitialized() => NavigationManager.NavigateTo("/", replace: true);
-}

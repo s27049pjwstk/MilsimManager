@@ -1,0 +1,13 @@
+﻿@inject NavigationManager NavigationManager
+
+@code {
+    [Parameter] public string To { get; set; } = "/";
+    [Parameter] public bool ForceLoad { get; set; } = true;
+    [Parameter] public bool Replace { get; set; } = true;
+
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!firstRender) return;
+        NavigationManager.NavigateTo(To, ForceLoad, Replace);
+    }
+}

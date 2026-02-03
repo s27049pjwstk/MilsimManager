@@ -1,24 +1,33 @@
-﻿@inject NavigationManager NavigationManager
-
-<MudPaper Class="pa-2" Elevation="2">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-        <MudAvatar Size="Size.Medium"
-                   Color="Color.Primary"
-                   Icon="@Icons.Material.Filled.Person"/>
-        <MudText Typo="Typo.subtitle2" Class="pl-2 flex-grow-1">
-            Username
-        </MudText>
-        <MudIconButton Icon="@Icons.Material.Filled.Logout"
-                       Size="Size.Medium"
-                       Color="Color.Default"
-                       OnClick="@Logout"/>
-    </MudStack>
-</MudPaper>
-
-@code {
-    private void Logout() {
-        //todo authentication
-        NavigationManager.NavigateTo("/", forceLoad: true);
-    }
-
-}
+﻿<AuthorizeView>
+    <MudPaper Class="pa-2" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudAvatar Size="Size.Medium"
+                       Color="Color.Primary">
+                <AuthorizeView Policy="Admin" Context="adminState">
+                    @*todo this is currently a simple design for debugging, final version should display only profile picture or default person icon*@
+                    <Authorized>
+                        <MudIcon Style="width: 100%; height: 100%;"
+                                 Icon="@Icons.Material.Filled.AdminPanelSettings"/>
+                    </Authorized>
+                    <NotAuthorized>
+                        <AuthorizeView Policy="Active" Context="activeState">
+                            <Authorized>
+                                <MudIcon Style="width: 100%; height: 100%;" Icon="@Icons.Material.Filled.Person"/>
+                            </Authorized>
+                            <NotAuthorized>
+                                <MudIcon Style="width: 100%; height: 100%;" Icon="@Icons.Material.Filled.Block"/>
+                            </NotAuthorized>
+                        </AuthorizeView>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </MudAvatar>
+            <MudText Typo="Typo.subtitle2" Class="pl-2 flex-grow-1">
+                @context.User.Identity?.Name
+            </MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                           Size="Size.Medium"
+                           Color="Color.Default"
+                           Href="/logout"/>
+        </MudStack>
+    </MudPaper>
+</AuthorizeView>
