@@ -11,6 +11,12 @@ riderModule.iml
 .env.*
 todo.md
 
+/Extensions/DebugExtensions
+
+
+# git rm -r -f --cached .
+# git add .
+
 # Local SQLite database files (dev)
 *.db
 *.db-shm
