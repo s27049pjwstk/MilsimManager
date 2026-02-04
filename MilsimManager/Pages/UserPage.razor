@@ -5,6 +5,7 @@
 @inject IClipboardService ClipboardService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IAuthorizationService AuthorizationService
 
 @if (_user is null) {
     <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
@@ -13,36 +14,48 @@
 } else {
     <MudStack Row="true">
         <MudStack Style="width: 16vw; min-width: 300px; max-width: 400px;">
-            <MudPaper Style="background: transparent;"
-                      Class="pa-2"
-                      Elevation="0">
+            <MudPaper Style="background: transparent;" Class="pa-2" Elevation="0">
                 <MudAvatar Style="width: 100%; height: 100%; aspect-ratio: 1/1;">
                     <MudIconButton Variant="Variant.Filled" Style="width: 100%; height: 100%; padding: 0;"
-                                   Color="Color.Dark">
+                                   Color="Color.Dark" Ripple="@_isSelf" OnClick="@OnEditProfileImageClick">
                         <MudIcon Style="width: 100%; height: 100%;" Icon="@Icons.Material.Rounded.Person"/>
                     </MudIconButton>
-                    @*todo button should only work for when you are the user that is displayed on this page*@
                 </MudAvatar>
             </MudPaper>
 
-            <MudPaper Class="pa-2" Elevation="2">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Rank</MudText>
+            <MudPaper Class="py-1" Elevation="2">
+                @*todo edit button for user rank*@
+                @*todo navigation to rank page*@
+                <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Rank</MudText>
+
+
                 <MudDivider/>
-                <MudText Align="Align.Center" Typo="Typo.h6">@_user.Rank?.Name</MudText>
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
-                    <MudText Typo="Typo.body2">
-                        @if (!string.IsNullOrWhiteSpace(_user.Rank?.Code)) {
-                            @_user.Rank.Code
-                            @if (!string.IsNullOrWhiteSpace(_user.Rank?.Abbreviation)) {
-                                @("|")
+                <MudStack Row="true">
+                    <MudStack Class="d-flex flex-grow-1 px-2 py-1" AlignItems="AlignItems.Center"
+                              Justify="Justify.Center" Spacing="0">
+                        <MudText Align="Align.Center" Typo="Typo.h6">@_user.Rank?.Name</MudText>
+                        <MudText Typo="Typo.body2">
+                            @if (!string.IsNullOrWhiteSpace(_user.Rank?.Code)) {
+                                @_user.Rank.Code
+                                @if (!string.IsNullOrWhiteSpace(_user.Rank.Abbreviation)) {
+                                    @(" | ")
+                                }
                             }
-                        }
-                        @_user?.Rank?.Abbreviation
-                    </MudText>
+                            @_user?.Rank?.Abbreviation
+                        </MudText>
+                    </MudStack>
+                    <AuthorizeView Policy="Admin">
+                        <MudStack Class="justify-center pa-2">
+                            <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
+                                           OnClick="@OnRankEditClick"/>
+                            @*todo this button like this or instead a button fullwidth under the whole rank mudpaper*@
+                        </MudStack>
+                    </AuthorizeView>
                 </MudStack>
+
             </MudPaper>
-            <MudPaper Class="py-2" Elevation="2">
-                <MudText Style="padding-left: 8px" Typo="Typo.caption" Class="mud-text-secondary">Assignment</MudText>
+            <MudPaper Class="py-1" Elevation="2">
+                <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Assignment</MudText>
                 <MudDivider/>
                 <MudButton FullWidth="true" Variant="Variant.Text" Ripple="false"
                            Class="justify-start rounded-0  cursor-default"
@@ -52,10 +65,10 @@
                         @_user.Status
                     </MudText>
                     <MudSpacer/>
-                    <AuthorizeView Policy="Admin">
-                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"/>
-                        @*todo there should be a separate edit ability for this user and for admins; This user should be able to self-set his LOA, while admins should be able to set him active/inactive*@
-                    </AuthorizeView>
+                    @if (_isAdmin || _isSelf) {
+                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
+                                       OnClick="@OnEditStatusClick"/>
+                    }
                 </MudButton>
                 <MudButton FullWidth="true" Variant="Variant.Text" Class="justify-start rounded-0"
                            Ripple="@(_user.Unit is not null)"
@@ -77,14 +90,15 @@
                     </MudStack>
                     <MudSpacer/>
                     <AuthorizeView Policy="Admin">
-                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit" OnClick="@OpenUserAssignmentDialog"/>
+                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
+                                       OnClick="@OnEditAssignmentClick"/>
                     </AuthorizeView>
                 </MudButton>
             </MudPaper>
-            <MudPaper Class="py-2" Elevation="2">
-                <MudText Style="padding-left: 8px" Typo="Typo.caption" Class="mud-text-secondary">Information</MudText>
+            <MudPaper Class="py-1" Elevation="2">
+                <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Information</MudText>
                 <MudDivider/>
-                <MudButton FullWidth="true" Ripple="false" Variant="Variant.Text"
+                <MudButton FullWidth="true" Ripple="true" Variant="Variant.Text"
                            Class="justify-start rounded-0 cursor-default"
                            OnClick="@(() => ClipboardService.CopyToClipboard(_user.DateJoined.ToDiscordTimestamp()))">
                     <MudText Align="Align.Left" Style="line-height: 1.2;" Typo="Typo.body1">
@@ -99,10 +113,10 @@
                         @(_user.SteamId ?? "None")
                     </MudText>
                     <MudSpacer/>
-                    <AuthorizeView Policy="Admin">
-                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"/>
-                        @*todo this should also be available to current user as self-action*@
-                    </AuthorizeView>
+                    @if (_isAdmin || _isSelf) {
+                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
+                                       OnClick="@OnEditSteamIdClick"/>
+                    }
                 </MudButton>
                 <MudButton FullWidth="true" Ripple="@(_user.DiscordId is not null)" Variant="Variant.Text"
                            Class="justify-start rounded-0"
@@ -118,50 +132,129 @@
                     }
                 </MudButton>
             </MudPaper>
-            <MudPaper Class="pa-2" Elevation="2">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Certifications</MudText>
+            <MudPaper Class="py-1" Elevation="2">
+                <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Certifications</MudText>
                 <MudDivider/>
                 @if (_certifications.Count == 0) {
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">None</MudText>
+                    <MudText Typo="Typo.body2" Class="px-2 pt-1 mud-text-secondary">None</MudText>
                 } else {
                     <MudList T="string" Dense="true">
-                        @foreach (var c in _certifications) {
-                            <MudListItem T="string">@c</MudListItem>
+                        @foreach (var cert in _certifications) {
+                            <MudListItem T="string" Class="px-2 py-0" Href="@($"/certifications/{cert}")">
+                                @cert
+                            </MudListItem>
                         }
                     </MudList>
                 }
             </MudPaper>
             <AuthorizeView Policy="Admin">
-                <MudPaper Class="pa-2" Elevation="2">
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Admin Note</MudText>
+                <MudPaper Class="py-1" Elevation="2">
+                    @*todo add a way to edit admin note*@
+                    <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Admin Note</MudText>
                     <MudDivider/>
                     @if (string.IsNullOrWhiteSpace(_user.Note)) {
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">None</MudText>
+                        <MudText Typo="Typo.body2" Class="px-2 pt-1 mud-text-secondary">None</MudText>
                     } else {
-                        <MudText Typo="Typo.body2">@_user.Note</MudText>
+                        <MudText Typo="Typo.body2" Class="px-2 pt-1">@_user.Note</MudText>
                     }
                 </MudPaper>
             </AuthorizeView>
         </MudStack>
-        <MudStack>
+        <MudStack Style="flex: 1 1 0; min-width: 300px;">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
                 <MudText Class="py-6" Typo="Typo.h2">@_user?.Name</MudText>
                 <MudChip T="string" Size="Size.Large" Color="@GetStatusColor(_user.Status)">
                     @_user.Status
                 </MudChip>
             </MudStack>
-            <MudPaper Class="pa-3">
+            <MudPaper Class="pa-2">
                 <MudTabs Rounded="true" Elevation="0">
                     <MudTabPanel Text="Awards">
-                        @*todo implement all of these*@
+                        <MudTable Items="@(_user.UserAwards.OrderByDescending(x => x.Date))"
+                                  Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Date</MudTh>
+                                <MudTh>Award</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                                @*todo add award images*@
+                                <MudTd DataLabel="Award">@context.Award.Name</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
                     </MudTabPanel>
+                    @*todo add maybe later filtering/sorting using https://mudblazor.com/components/datagrid#default-data-grid*@
+                    @*todo add search func maybe?*@
                     <MudTabPanel Text="Events">
+                        <MudTable Items="@(_user.UserAttendances.OrderByDescending(x => x.Event.Date))"
+                                  Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Date</MudTh>
+                                <MudTh>Event</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Date">@context.Event.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd DataLabel="Event">@context.Event.Name</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
                     </MudTabPanel>
                     <MudTabPanel Text="Ranks">
+                        <MudTable Items="@_user.RankLogs.OrderByDescending(x => x.Date)"
+                                  Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Date</MudTh>
+                                <MudTh>Rank</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd DataLabel="Rank">@(context.Rank?.Name ?? context.RankName)</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
                     </MudTabPanel>
+
                     <MudTabPanel Text="Assignments">
+                        <MudTable Items="@_user.UnitAssignmentLogs.OrderByDescending(x => x.Date)"
+                                  Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Date</MudTh>
+                                <MudTh>Unit</MudTh>
+                                <MudTh>Position</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd DataLabel="Unit">@(context.Unit?.Name ?? context.UnitName)</MudTd>
+                                <MudTd DataLabel="Position">@context.Role</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
                     </MudTabPanel>
+
                     <MudTabPanel Text="Certifications">
+                        <MudTable Items="@_user.UserCertifications.OrderByDescending(x => x.Date)"
+                                  Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Date</MudTh>
+                                <MudTh>Certification</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd DataLabel="Certification">@context.Certification.Name</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
                     </MudTabPanel>
                 </MudTabs>
             </MudPaper>
@@ -171,6 +264,12 @@
 
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = null!;
+    private bool _isSelf;
+    private bool _isAdmin;
+    private bool _noUser;
+
     [Parameter]
     public int UserId { get; set; }
 
@@ -180,22 +279,48 @@
     protected override async Task OnParametersSetAsync() {
         _user = await UserService.GetByIdAsync(UserId);
         if (_user is null) {
-            Snackbar.Add("User does not exist", Severity.Error);
-            NavigationManager.NavigateTo("users");
+            _noUser = true;
+            return;
         }
-        _certifications = _user?.UserCertifications?
-                              .Select(x => x.Certification?.Name ?? "—")
-                              .ToList()
-                          ?? [];
+        var authState = await AuthenticationStateTask;
+        _isSelf = authState.User.FindFirstValue("auth_UserId") == UserId.ToString();
+        _isAdmin = (await AuthorizationService.AuthorizeAsync(authState.User, policyName: "Admin")).Succeeded;
+
+        _certifications = _user.UserCertifications
+            .Select(x => x.Certification.Name)
+            .ToList();
+    }
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!_noUser) return;
+        _noUser = false;
+        Snackbar.Add("User does not exist", Severity.Error);
+        NavigationManager.NavigateTo("/users", false, true);
     }
 
     private static Color GetStatusColor(string? status) => status switch {
         "LOA" => Color.Primary, "Active" => Color.Success, _ => Color.Dark
-    }; //todo move this to model or a extension?
+    };//todo move this to model or a extension later?
 
-    private async Task OpenUserAssignmentDialog() {
+    private async Task OnEditAssignmentClick() {
+        if (_user is null) return;
+
         var dialog = await DialogService.ShowAsync<UserAssignmentDialog>("", new DialogParameters { ["User"] = _user });
         var result = await dialog.Result;
-        if (!(result?.Canceled ?? true)) _user = await UserService.GetByIdAsync(_user!.Id);
+        if (!(result?.Canceled ?? true)) _user = await UserService.GetByIdAsync(_user.Id);
+    }
+    private void OnEditProfileImageClick() {
+        if (!_isSelf) return;
+        Snackbar.Add("Not implemented", Severity.Warning);
+        //todo NotImplemented
+    }
+
+    private void OnEditStatusClick() {
+        Snackbar.Add("Not implemented", Severity.Warning);
+        //todo NotImplemented
+    }
+    private void OnEditSteamIdClick() {
+        Snackbar.Add("Not implemented", Severity.Warning);
+        //todo NotImplemented
     }
 }
