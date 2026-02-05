@@ -1,6 +1,8 @@
 ﻿namespace MilsimManager.Services;
 
 public interface IErrorHandler {
+    void HandleException(Exception ex, string? userMessage = null, bool swallowUnexpected = false);
+    
     Task ExecuteAsync(
         Func<Task> action,
         string? userMessage = null,
