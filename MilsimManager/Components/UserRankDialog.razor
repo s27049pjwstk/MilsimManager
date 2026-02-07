@@ -1,0 +1,89 @@
+﻿@inject IErrorHandler ErrorHandler
+@inject IUserService UserService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">Update Rank</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm Disabled="_disabled">
+            <MudSelect T="Rank" @bind-Value="_selectedRank"
+                       Label="Rank"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Dense="true"
+                       ToStringFunc="@GetRankLabelOrUnassigned">
+                <MudSelectItem Value="@(default(Rank))">Unassigned</MudSelectItem>
+                @foreach (var rank in _ranks) {
+                    <MudSelectItem Value="@rank">@GetRankLabel(rank)</MudSelectItem>
+                }
+            </MudSelect>
+            @if (_ranks.Count == 0) {
+                <MudText Typo="Typo.caption" Class="mt-2 mud-text-secondary">No ranks available</MudText>
+            }
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = null!;
+
+    [Parameter]
+    public required User User { get; set; }
+
+    private bool _disabled;
+    private Rank? _selectedRank;
+    private List<Rank> _ranks = [];
+
+    protected override void OnParametersSet() {
+        _selectedRank = User.Rank;
+    }
+
+    protected override async Task OnInitializedAsync() {
+        await MudDialog.SetOptionsAsync(MudDialog.Options with {
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small
+        });
+        _ranks = await UserService.GetRanksAsync();
+    }
+
+    private static string GetRankLabel(Rank rank) =>
+        !string.IsNullOrWhiteSpace(rank.Code) ? $"{rank.Name} ({rank.Code})" : rank.Name;
+
+    private static string GetRankLabelOrUnassigned(Rank? rank) =>
+        rank is null ? "Unassigned" : GetRankLabel(rank);
+
+    private async Task SaveAsync() {
+        if (_selectedRank?.Id == User.RankId) {
+            MudDialog.Cancel();
+            return;
+        }
+
+        _disabled = true;
+        try {
+            var approver = await UserService.GetAuthenticatedUserAsync(AuthenticationStateTask);
+            User.Version = await UserService.UpdateRankAsync(User.Id, User.Version, _selectedRank?.Id, approver);
+            User.RankId = _selectedRank?.Id;
+            User.Rank = _selectedRank;
+            Snackbar.Add("Rank updated", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(User));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to update rank");
+            MudDialog.Close(DialogResult.Ok<User?>(null));
+        } finally {
+            _disabled = false;
+        }
+    }
+
+}

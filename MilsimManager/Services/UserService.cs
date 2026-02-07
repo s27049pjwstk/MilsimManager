@@ -4,8 +4,8 @@ using MilsimManager.Models;
 namespace MilsimManager.Services;
 
 public class UserService(IDbContextFactory<Context> dbFactory) : IUserService {
-    public async Task<User?> GetByIdAsync(int id) {
-        await using var db = await dbFactory.CreateDbContextAsync();
+    public async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
 
         return await db.Users
             .AsNoTracking()
@@ -18,11 +18,11 @@ public class UserService(IDbContextFactory<Context> dbFactory) : IUserService {
             .Include(u => u.UserAwards).ThenInclude(ua => ua.Award)
             .Include(u => u.UserCertifications).ThenInclude(uc => uc.Certification)
             .Include(u => u.UserAttendances).ThenInclude(ua => ua.Event)
-            .FirstOrDefaultAsync(u => u.Id == id);
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
-    public async Task<List<User>> GetAllAsync(string? search = null) {
-        await using var db = await dbFactory.CreateDbContextAsync();
+    public async Task<List<User>> GetAllAsync(string? search = null, CancellationToken cancellationToken = default) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
 
         var q = db.Users
             .AsNoTracking()
@@ -37,36 +37,241 @@ public class UserService(IDbContextFactory<Context> dbFactory) : IUserService {
 
         return await q
             .OrderBy(u => u.Name)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<bool> UserExists(int id) {
-        await using var db = await dbFactory.CreateDbContextAsync();
-        return await db.Users.AsNoTracking().AnyAsync(u => u.Id == id);
+    public async Task<List<Rank>> GetRanksAsync(string? search = null, CancellationToken cancellationToken = default) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var q = db.Ranks.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search)) {
+            search = search.Trim().ToLower();
+            q = q.Where(r =>
+                r.Name.ToLower().Contains(search) ||
+                r.Abbreviation != null && r.Abbreviation.ToLower().Contains(search) ||
+                r.Code != null && r.Code.ToLower().Contains(search));
+        }
+
+        return await q
+            .OrderBy(r => r.SortOrder)
+            .ThenBy(r => r.Name)
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<User> AssignUserAsync(int userId, uint version, int? unitId, string? unitRole) {
-        await using var db = await dbFactory.CreateDbContextAsync();
+    public async Task<uint> UpdateAssignmentAsync(
+        int userId,
+        uint version,
+        int? unitId,
+        string? unitRole,
+        User approvedBy,
+        CancellationToken cancellationToken = default
+    ) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
 
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
         if (user is null) throw new AppException("User not found");
         db.Entry(user).Property(u => u.Version).OriginalValue = version;
 
+        unitRole = string.IsNullOrWhiteSpace(unitRole) ? null : unitRole.Trim();
+        if (unitRole is not null && unitRole.Length > 64)
+            throw new AppException("Unit role must be at most 64 characters");
+
+        if (user.UnitId == unitId && user.UnitRole == unitRole) return user.Version;
+
+        Unit? unit = null;
         if (unitId is not null) {
-            var unitExists = await db.Units.AsNoTracking().AnyAsync(u => u.Id == unitId);
-            if (!unitExists) throw new AppException("Unit not found");
-            user.UnitId = unitId;
-        } else {
-            user.UnitId = null;
+            unit = await db.Units.SingleOrDefaultAsync(u => u.Id == unitId, cancellationToken);
+            if (unit is null) throw new AppException("Unit not found");
         }
 
-        user.UnitRole = string.IsNullOrWhiteSpace(unitRole) ? null : unitRole.Trim();
+        user.UnitId = unitId;
+        user.UnitRole = unitRole;
+        db.UnitAssignmentLogs.Add(new UnitAssignmentLog {
+            User = user,
+            Unit = unit,
+            UnitName = unit?.Name ?? "None",//todo maybe model needs adjustment here?
+            UnitAbbreviation = unit?.Abbreviation ?? string.Empty,
+            Role = unitRole ?? string.Empty,
+            ApprovedById = approvedBy.Id,
+            ApprovedByName = approvedBy.Name
+        });
 
         try {
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(cancellationToken);
         } catch (DbUpdateConcurrencyException) {
             throw new AppException("Concurrency error");
+        } catch (DbUpdateException) {
+            throw new AppException("Failed to update database");
         }
-        return user;
+        return user.Version;
+    }
+
+    public async Task<uint> UpdateNoteAsync(int userId, uint version, string? note, CancellationToken cancellationToken = default) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null) throw new AppException("User not found");
+        db.Entry(user).Property(u => u.Version).OriginalValue = version;
+
+        note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        if (note is not null && note.Length > 1000)
+            throw new AppException("Note must be at most 1000 characters");
+        if (user.Note == note) return user.Version;
+        user.Note = note;
+
+        try {
+            await db.SaveChangesAsync(cancellationToken);
+        } catch (DbUpdateConcurrencyException) {
+            throw new AppException("Concurrency error");
+        } catch (DbUpdateException) {
+            throw new AppException("Failed to update database");
+        }
+        return user.Version;
+    }
+
+    public async Task<uint> UpdateRankAsync(
+        int userId,
+        uint version,
+        int? rankId,
+        User approvedBy,
+        CancellationToken cancellationToken = default
+    ) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null) throw new AppException("User not found");
+        db.Entry(user).Property(u => u.Version).OriginalValue = version;
+
+        Rank? rank = null;
+        if (rankId is not null) {
+            rank = await db.Ranks.SingleOrDefaultAsync(r => r.Id == rankId, cancellationToken);
+            if (rank is null) throw new AppException("Rank not found");
+        }
+
+        if (user.RankId == rankId) return user.Version;
+
+        user.RankId = rankId;
+        db.RankLogs.Add(new RankLog {
+            User = user,
+            Rank = rank,
+            RankName = rank?.Name ?? "No rank",
+            ApprovedById = approvedBy.Id,
+            ApprovedByName = approvedBy.Name
+        });
+
+        try {
+            await db.SaveChangesAsync(cancellationToken);
+        } catch (DbUpdateConcurrencyException) {
+            throw new AppException("Concurrency error");
+        } catch (DbUpdateException) {
+            throw new AppException("Failed to update database");
+        }
+        return user.Version;
+    }
+
+    public async Task<uint> UpdateSteamIdAsync(int userId, uint version, string? steamId, CancellationToken cancellationToken = default) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null) throw new AppException("User not found");
+        db.Entry(user).Property(u => u.Version).OriginalValue = version;
+
+        steamId = string.IsNullOrWhiteSpace(steamId) ? null : steamId.Trim();
+        if (user.SteamId == steamId) return user.Version;
+
+        if (!string.IsNullOrWhiteSpace(steamId)) {
+            if (steamId.Length != 17 || !steamId.All(char.IsDigit))
+                throw new AppException("SteamID64 must be 17 digits");
+            var inUse = await db.Users.AsNoTracking()
+                .AnyAsync(u => u.SteamId == steamId && u.Id != userId, cancellationToken);
+            if (inUse) throw new AppException("SteamID is already in use");
+        }
+
+        user.SteamId = steamId;
+
+        try {
+            await db.SaveChangesAsync(cancellationToken);
+        } catch (DbUpdateConcurrencyException) {
+            throw new AppException("Concurrency error");
+        } catch (DbUpdateException) {
+            throw new AppException("Failed to update database");
+        }
+
+        return user.Version;
+    }
+
+    public async Task<uint> UpdateStatusAsync(
+        int userId,
+        uint version,
+        bool active,
+        User approvedBy,
+        CancellationToken cancellationToken = default
+    ) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null) throw new AppException("User not found");
+        db.Entry(user).Property(u => u.Version).OriginalValue = version;
+
+        if (user.Active == active) return user.Version;
+        user.Active = active;
+
+        db.StatusLogs.Add(new StatusLog {
+            User = user,
+            Status = active,
+            ApprovedById = approvedBy.Id,
+            ApprovedByName = approvedBy.Name
+        });
+
+        try {
+            await db.SaveChangesAsync(cancellationToken);
+        } catch (DbUpdateConcurrencyException) {
+            throw new AppException("Concurrency error");
+        } catch (DbUpdateException) {
+            throw new AppException("Failed to update database");
+        }
+        return user.Version;
+    }
+
+    public async Task<uint> AddLeaveOfAbsenceAsync(
+        int userId,
+        uint version,
+        DateTime? dateStart,
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default
+    ) {
+        dateEnd = dateEnd.ToUniversalTime();
+        dateStart = dateStart?.ToUniversalTime();
+        var now = DateTime.UtcNow;
+        if (dateStart <= now) dateStart = now;
+        var dateStartNonNull = dateStart ?? now;
+        if (dateEnd < dateStartNonNull) throw new AppException("End date must be in the future and after start date");
+
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var hasActiveLoa = await db.LeaveOfAbsences
+            .AsNoTracking()
+            .AnyAsync(l => l.UserId == userId && l.DateEnd >= now, cancellationToken);
+        if (hasActiveLoa) throw new AppException("Only one active leave of absence is allowed");
+
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null) throw new AppException("User not found");
+        db.Entry(user).Property(u => u.Version).OriginalValue = version;
+
+        db.LeaveOfAbsences.Add(new LeaveOfAbsence {
+            User = user,
+            DateStart = dateStartNonNull,
+            DateEnd = dateEnd
+        });
+
+        try {
+            await db.SaveChangesAsync(cancellationToken);
+        } catch (DbUpdateConcurrencyException) {
+            throw new AppException("Concurrency error");
+        } catch (DbUpdateException) {
+            throw new AppException("Failed to update database");
+        }
+        return user.Version;
     }
 }

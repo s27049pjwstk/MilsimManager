@@ -5,30 +5,22 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h5">@_dialogTitleText</MudText>
+        <MudText Typo="Typo.h5">@DialogTitleText</MudText>
     </TitleContent>
     <DialogContent>
-        <MudForm @ref="_form" Disabled="_disabled">
-            <MudAutocomplete @bind-Value="_dto.Unit"
-                             Label="Unit"
-                             Variant="Variant.Outlined"
-                             Margin="Margin.Dense"
-                             Clearable="true"
-                             ResetValueOnEmptyText="true"
-                             MinCharacters="0"
-                             DebounceInterval="200"
-                             ShowProgressIndicator="true"
-                             Validation="ValidateUnitAsync"
-                             SearchFunc="SearchUnits"
-                             ToStringFunc="@(u => u is null ? null : $"{u.Name} ({u.Abbreviation})")">
-                <ItemTemplate Context="u">
-                    <MudStack Row="true">
-                        <MudText>@u.Name</MudText>
-                        <MudSpacer/>
-                        <MudText><i>@u.Abbreviation</i></MudText>
-                    </MudStack>
-                </ItemTemplate>
-            </MudAutocomplete>
+        <MudForm Disabled="_disabled">
+            <MudSelect T="Unit"
+                       @bind-Value="_dto.Unit"
+                       Label="Unit"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true"
+                       ToStringFunc="@GetUnitLabelOrUnassigned">
+                <MudSelectItem Value="@(default(Unit))">Unassigned</MudSelectItem>
+                @foreach (var unit in _units) {
+                    <MudSelectItem Value="@unit">@GetUnitLabel(unit)</MudSelectItem>
+                }
+            </MudSelect>
             <MudTextField @bind-Value="_dto.UnitRole"
                           Label="Position"
                           Variant="Variant.Outlined"
@@ -38,11 +30,8 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@_disabled" OnClick="@UnassignAsync">
-            Unassign
-        </MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_disabled" OnClick="@AssignAsync">
-            @_submitButtonText
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_disabled" OnClick="@SaveAsync">
+            Save
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -53,28 +42,23 @@
 
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = null!;
 
     [Parameter]
     public required User User { get; set; }
 
-    private MudForm _form = null!;
     private bool _disabled;
 
-    private AssigmentDto _dto = new();
-    private string _submitButtonText = "Assign";
-    private string _dialogTitleText = "Error: No User";
+    private AssignmentDto _dto = new();
+    private string DialogTitleText => User.Unit is null ? $"Assign {User.Name} to unit" : $"Change assignment of {User.Name}";
+    private List<Unit> _units = [];
 
     protected override void OnParametersSet() {
-        _dto = new AssigmentDto {
+        _dto = new AssignmentDto {
             Unit = User.Unit,
             UnitRole = User.UnitRole
         };
-        if (User.Unit is null) {
-            _dialogTitleText = $"Assign {User.Name} to unit";
-        } else {
-            _dialogTitleText = $"Change assignment of {User.Name}";
-            _submitButtonText = "Reassign";
-        }
     }
 
     protected override async Task OnInitializedAsync() {
@@ -83,46 +67,42 @@
             CloseOnEscapeKey = true,
             MaxWidth = MaxWidth.Small
         });
+        _units = await UnitService.GetAllAsync();
     }
 
-    private sealed class AssigmentDto {
+    private sealed class AssignmentDto {
         public Unit? Unit { get; set; }
         public string? UnitRole { get; set; }
     }
 
-    private async Task<string?> ValidateUnitAsync(Unit? unit) => unit is null || await UnitService.UnitExists(unit.Id) ? null : "Unit does not exist";
+    private static string GetUnitLabel(Unit unit) =>
+        !string.IsNullOrWhiteSpace(unit.Abbreviation) ? $"{unit.Name} ({unit.Abbreviation})" : unit.Name;
 
-    private async Task AssignAsync() {
+    private static string GetUnitLabelOrUnassigned(Unit? unit) =>
+        unit is null ? "Unassigned" : GetUnitLabel(unit);
+
+    private async Task SaveAsync() {
         _dto.UnitRole = _dto.UnitRole?.Trim();
-        await _form.Validate();
-        if (!_form.IsValid) return;
+        if (_dto.UnitRole == User.UnitRole && _dto.Unit?.Id == User.Unit?.Id) {
+            MudDialog.Cancel();
+            return;
+        }
 
         _disabled = true;
         try {
-            var ok = await ErrorHandler.ExecuteAsync(
-            async () => {
-                await UserService.AssignUserAsync(User.Id, User.Version, _dto.Unit?.Id, _dto.UnitRole);
-                return true;
-            },
-            userMessage: "Failed to update assignment.",
-            fallback: false,
-            swallowUnexpected: true);
-
-            if (ok) {
-                var text = User.Unit is null ? "assigned" : "reassigned";
-                Snackbar.Add($"{User.Name} successfully {text}", Severity.Success);
-            }
-            MudDialog.Close(DialogResult.Ok(true));
+            var approver = await UserService.GetAuthenticatedUserAsync(AuthenticationStateTask);
+            User.Version = await UserService.UpdateAssignmentAsync(User.Id, User.Version, _dto.Unit?.Id, _dto.UnitRole, approver);
+            User.Unit = _dto.Unit;
+            User.UnitId = _dto.Unit?.Id;
+            User.UnitRole = _dto.UnitRole;
+            var text = User.Unit is null ? "assigned" : "reassigned";
+            Snackbar.Add($"{User.Name} successfully {text}", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(User));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to update assignment");
+            MudDialog.Close(DialogResult.Ok<User?>(null));
         } finally {
             _disabled = false;
         }
     }
-
-    private async Task UnassignAsync() {
-        _dto.Unit = null;
-        await AssignAsync();
-    }
-
-    private async Task<IEnumerable<Unit>> SearchUnits(string search, CancellationToken ct) => await UnitService.GetAllAsync(search, ct);
-
 }

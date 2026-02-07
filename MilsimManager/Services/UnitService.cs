@@ -51,7 +51,7 @@ public class UnitService(IDbContextFactory<Context> dbFactory) : IUnitService {
         try {
             await db.SaveChangesAsync();
         } catch (DbUpdateException) {
-            throw new AppException("Failed to update database.");
+            throw new AppException("Failed to update database");
         }
 
         return unit;
@@ -64,7 +64,7 @@ public class UnitService(IDbContextFactory<Context> dbFactory) : IUnitService {
         try {
             unit = await db.Units.SingleAsync(u => u.Id == id);
         } catch (InvalidOperationException) {
-            throw new AppException("Unit not found.");
+            throw new AppException("Unit not found");
         }
         db.Entry(unit).Property(u => u.Version).OriginalValue = version;
 
@@ -77,7 +77,7 @@ public class UnitService(IDbContextFactory<Context> dbFactory) : IUnitService {
         } catch (DbUpdateConcurrencyException) {
             throw new AppException("Concurrency error");
         } catch (DbUpdateException) {
-            throw new AppException("Failed to update database.");
+            throw new AppException("Failed to update database");
         }
 
         return unit;
@@ -87,7 +87,7 @@ public class UnitService(IDbContextFactory<Context> dbFactory) : IUnitService {
         await using var db = await dbFactory.CreateDbContextAsync();
 
         var deleted = await db.Units.Where(u => u.Id == id).ExecuteDeleteAsync();
-        return deleted == 0 ? throw new AppException("Unit not found.") : deleted;
+        return deleted == 0 ? throw new AppException("Unit not found") : deleted;
     }
 
     public async Task<bool> NameExistsAsync(string name, int? excludeId = null) {

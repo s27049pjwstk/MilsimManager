@@ -6,6 +6,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IAuthorizationService AuthorizationService
+@inject IErrorHandler ErrorHandler
 
 @if (_user is null) {
     <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
@@ -47,7 +48,7 @@
                     <AuthorizeView Policy="Admin">
                         <MudStack Class="justify-center pa-2">
                             <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
-                                           OnClick="@OnRankEditClick"/>
+                                           OnClick="@OnEditRankClick"/>
                             @*todo this button like this or instead a button fullwidth under the whole rank mudpaper*@
                         </MudStack>
                     </AuthorizeView>
@@ -58,16 +59,25 @@
                 <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Assignment</MudText>
                 <MudDivider/>
                 <MudButton FullWidth="true" Variant="Variant.Text" Ripple="false"
-                           Class="justify-start rounded-0  cursor-default"
-                           OnClick="@(() => NavigationManager.Refresh())">
+                           Class="justify-start rounded-0 cursor-default">
                     <MudText Align="Align.Left" Style="line-height: 1.2;" Typo="Typo.body1">
                         <b>Status</b><br/>
                         @_user.Status
                     </MudText>
                     <MudSpacer/>
-                    @if (_isAdmin || _isSelf) {
-                        <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
-                                       OnClick="@OnEditStatusClick"/>
+                    @if (_isAdmin) {
+                        <MudIconButton Class="pa-2 ml-1"
+                                       Size="Size.Small"
+                                       Disabled="@_statusUpdateDisabled"
+                                       Icon="@Icons.Material.Filled.Cached"
+                                       OnClick="@OnToggleActiveClick"/>
+                    }
+                    @if (_isSelf) {
+                        <MudIconButton Class="pa-2 ml-1"
+                                       Size="Size.Small"
+                                       Disabled="@_statusUpdateDisabled"
+                                       Icon="@Icons.Material.Filled.Edit"
+                                       OnClick="@OnEditLoaClick"/>
                     }
                 </MudButton>
                 <MudButton FullWidth="true" Variant="Variant.Text" Class="justify-start rounded-0"
@@ -152,11 +162,20 @@
                     @*todo add a way to edit admin note*@
                     <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Admin Note</MudText>
                     <MudDivider/>
-                    @if (string.IsNullOrWhiteSpace(_user.Note)) {
-                        <MudText Typo="Typo.body2" Class="px-2 pt-1 mud-text-secondary">None</MudText>
-                    } else {
-                        <MudText Typo="Typo.body2" Class="px-2 pt-1">@_user.Note</MudText>
-                    }
+                    <MudTextField @bind-Value="@_adminNoteText"
+                                  @ref="_adminNote"
+                                  Class="px-2"
+                                  Placeholder="None"
+                                  Typo="Typo.body2"
+                                  Underline="false"
+                                  Variant="Variant.Text"
+                                  AutoGrow="true"
+                                  Immediate="true"
+                                  Disabled="@_adminNoteDisabled"
+                                  OnKeyDown="@OnEditAdminNoteCancel"
+                                  OnBlur="@OnEditAdminNoteSaveAsync"
+                                  MaxLength="1000"
+                    />
                 </MudPaper>
             </AuthorizeView>
         </MudStack>
@@ -269,6 +288,11 @@
     private bool _isSelf;
     private bool _isAdmin;
     private bool _noUser;
+    private bool _statusUpdateDisabled;
+
+    private MudTextField<string> _adminNote = null!;
+    private string? _adminNoteText;
+    private bool _adminNoteDisabled;
 
     [Parameter]
     public int UserId { get; set; }
@@ -282,6 +306,8 @@
             _noUser = true;
             return;
         }
+        _adminNoteText = _user.Note;
+
         var authState = await AuthenticationStateTask;
         _isSelf = authState.User.FindFirstValue("auth_UserId") == UserId.ToString();
         _isAdmin = (await AuthorizationService.AuthorizeAsync(authState.User, policyName: "Admin")).Succeeded;
@@ -307,7 +333,11 @@
 
         var dialog = await DialogService.ShowAsync<UserAssignmentDialog>("", new DialogParameters { ["User"] = _user });
         var result = await dialog.Result;
-        if (!(result?.Canceled ?? true)) _user = await UserService.GetByIdAsync(_user.Id);
+        if (result?.Data is User updated) {
+            _user = updated;
+        } else if (!(result?.Canceled ?? true)) {
+            _user = await UserService.GetByIdAsync(UserId);
+        }
     }
     private void OnEditProfileImageClick() {
         if (!_isSelf) return;
@@ -315,12 +345,76 @@
         //todo NotImplemented
     }
 
-    private void OnEditStatusClick() {
+    private void OnEditLoaClick() {
         Snackbar.Add("Not implemented", Severity.Warning);
         //todo NotImplemented
     }
-    private void OnEditSteamIdClick() {
-        Snackbar.Add("Not implemented", Severity.Warning);
-        //todo NotImplemented
+
+    private async Task OnToggleActiveClick() {
+        if (_user is null || _statusUpdateDisabled) return;
+        _statusUpdateDisabled = true;
+        try {
+            var approver = await UserService.GetAuthenticatedUserAsync(AuthenticationStateTask);
+            var newStatus = !_user.Active;
+            _user.Version = await UserService.UpdateStatusAsync(_user.Id, _user.Version, newStatus, approver);
+            _user.Active = newStatus;
+            Snackbar.Add($"Status set to {(_user.Active ? "Active" : "Inactive")}", Severity.Success);
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to update status");
+            _user = await UserService.GetByIdAsync(UserId);
+        } finally {
+            _statusUpdateDisabled = false;
+        }
+    }
+
+    private async Task OnEditSteamIdClick() {
+        if (_user is null) return;
+        var dialog = await DialogService.ShowAsync<UserSteamIdDialog>("", new DialogParameters { ["User"] = _user });
+        var result = await dialog.Result;
+        if (result?.Data is User updated) {
+            _user = updated;
+        } else if (!(result?.Canceled ?? true)) {
+            _user = await UserService.GetByIdAsync(UserId);
+        }
+    }
+    private async Task OnEditRankClick() {
+        if (_user is null) return;
+        var dialog = await DialogService.ShowAsync<UserRankDialog>("", new DialogParameters { ["User"] = _user });
+        var result = await dialog.Result;
+        if (result?.Data is User updated) {
+            _user = updated;
+        } else if (!(result?.Canceled ?? true)) {
+            _user = await UserService.GetByIdAsync(UserId);
+        }
+    }
+    private async Task OnEditAdminNoteSaveAsync() {
+        if (_user is null || _adminNoteDisabled) return;
+        _adminNoteText = string.IsNullOrWhiteSpace(_adminNoteText) ? null : _adminNoteText.Trim();
+        if (_adminNoteText == _user.Note) {
+            await _adminNote.SetText(_adminNoteText ?? string.Empty);
+            return;
+        }
+        try {
+            _adminNoteDisabled = true;
+            _user.Version = await UserService.UpdateNoteAsync(_user.Id, _user.Version, _adminNoteText);
+            _user.Note = _adminNoteText;
+            Snackbar.Add("Saved", Severity.Success);
+            _adminNoteText = _user.Note;
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to save admin note");
+        } finally {
+            await _adminNote.SetText(_adminNoteText ?? string.Empty);
+            _adminNoteDisabled = false;
+        }
+    }
+
+    private async Task OnEditAdminNoteCancel(KeyboardEventArgs e) {
+        if (e.Key != "Escape") return;
+        _adminNoteDisabled = true;
+        _adminNoteText = _user?.Note;
+        await _adminNote.BlurAsync();
+        await _adminNote.SetText(_user?.Note ?? string.Empty);
+        Snackbar.Add("Cancel");
+        _adminNoteDisabled = false;
     }
 }

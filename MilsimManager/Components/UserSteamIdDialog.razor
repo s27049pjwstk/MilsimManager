@@ -1,0 +1,81 @@
+﻿@inject IErrorHandler ErrorHandler
+@inject IUserService UserService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">Edit SteamID64</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" Disabled="_disabled">
+            <MudTextField @bind-Value="_steamId"
+                          Label="SteamID64"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="17"
+                          Immediate="true"
+                          Clearable="true"
+                          Validation="ValidateSteamId"/>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter]
+    public required User User { get; set; }
+
+    private MudForm _form = null!;
+    private bool _disabled;
+    private string? _steamId;
+
+    protected override void OnParametersSet() => _steamId = User.SteamId;
+
+    protected override async Task OnInitializedAsync() {
+        await MudDialog.SetOptionsAsync(MudDialog.Options with {
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small
+        });
+    }
+
+    private static string? ValidateSteamId(string? value) {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        if (trimmed.Length != 17 || !trimmed.All(char.IsDigit))
+            return "SteamID64 must be 17 digits.";
+        return null;
+    }
+
+    private async Task SaveAsync() {
+        _steamId = string.IsNullOrWhiteSpace(_steamId) ? null : _steamId.Trim();
+
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        if (_steamId == User.SteamId) {
+            MudDialog.Cancel();
+            return;
+        }
+
+        _disabled = true;
+        try {
+            User.Version = await UserService.UpdateSteamIdAsync(User.Id, User.Version, _steamId);
+            User.SteamId = _steamId;
+            Snackbar.Add("SteamID updated", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(User));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to update SteamID");
+            MudDialog.Close(DialogResult.Ok<User?>(null));
+        } finally {
+            _disabled = false;
+        }
+    }
+}
