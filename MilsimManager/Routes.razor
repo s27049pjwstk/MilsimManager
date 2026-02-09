@@ -1,7 +1,10 @@
 ﻿@using MilsimManager.Pages
 <MudThemeProvider IsDarkMode="true"/>
 <MudPopoverProvider/>
-<MudDialogProvider/>
+<MudDialogProvider
+    FullWidth="true"
+    MaxWidth="MaxWidth.Small"
+    CloseOnEscapeKey="true"/>
 <MudSnackbarProvider/>
 
 <Router AppAssembly="@typeof(Program).Assembly">

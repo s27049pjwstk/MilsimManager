@@ -68,10 +68,7 @@
     private string _submitButtonText = "Create";
     private string _dialogTitleText = "Create New Unit";
 
-    protected override void OnInitialized() {
-        var options = MudDialog.Options with { FullWidth = true, CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
-        MudDialog.SetOptionsAsync(options);
-
+    protected override void OnParametersSet() {
         if (Unit is null) return;
         _submitButtonText = "Save";
         _dialogTitleText = "Edit Unit";
@@ -90,14 +87,14 @@
 
     private async Task<string?> ValidateNameAsync(string? name) {
         if (name is null) return null;
-        if (await UnitService.NameExistsAsync(name.Trim(), excludeId: Unit?.Id))
+        if (await UnitService.NameExistsAsync(name.Trim(), Unit?.Id))
             return "A unit with this name already exists";
         return null;
     }
 
     private async Task<string?> ValidateAbbreviationAsync(string? name) {
         if (name is null) return null;
-        if (await UnitService.AbbreviationExistsAsync(name.Trim(), excludeId: Unit?.Id))
+        if (await UnitService.AbbreviationExistsAsync(name.Trim(), Unit?.Id))
             return "A unit with this name already exists";
         return null;
     }
@@ -112,28 +109,17 @@
         _disabled = true;
         try {
             if (Unit is null) {
-                var created = await ErrorHandler.ExecuteAsync(
-                async () => await UnitService.CreateAsync(_dto.Name, _dto.Abbreviation, _dto.Description),
-                "Failed to create unit.",
-                null,
-                true);
-
-                if (created is not null) Snackbar.Add($"Unit {created.Name} created", Severity.Success);
+                var created = await UnitService.CreateAsync(_dto.Name, _dto.Abbreviation, _dto.Description);
+                Snackbar.Add($"Unit {created.Name} created", Severity.Success);
                 MudDialog.Close(DialogResult.Ok(Result.Created));
             } else {
-                var updated = await ErrorHandler.ExecuteAsync(
-                async () => await UnitService.UpdateAsync(Unit.Id, Unit.Version, _dto.Name, _dto.Abbreviation, _dto.Description),
-                "Failed to update unit.",
-                null,
-                true);
-
-                if (updated is null) {
-                    MudDialog.Cancel(); 
-                    return; 
-                }
+                var updated = await UnitService.UpdateAsync(Unit.Id, Unit.Version, _dto.Name, _dto.Abbreviation, _dto.Description);
                 Snackbar.Add($"Unit {updated.Name} updated", Severity.Success);
                 MudDialog.Close(DialogResult.Ok(Result.Updated));
             }
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, Unit is null ? "Failed to create unit" : "Failed to update unit");
+            MudDialog.Close(DialogResult.Ok(Result.Failed));
         } finally {
             _disabled = false;
         }
@@ -143,10 +129,11 @@
         if (Unit is null) return;
         _disabled = true;
         try {
-            await ErrorHandler.ExecuteAsync(() => UnitService.DeleteAsync(Unit.Id), "Failed to delete unit");
+            await UnitService.DeleteAsync(Unit.Id);
             Snackbar.Add("Unit deleted", Severity.Success);
             MudDialog.Close(DialogResult.Ok(Result.Deleted));
-        } catch {
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to delete unit");
             MudDialog.Close(DialogResult.Ok(Result.Failed));
         } finally {
             _disabled = false;
