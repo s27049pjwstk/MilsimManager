@@ -3,6 +3,7 @@
 @inject NavigationManager NavigationManager
 @inject IUnitService UnitService
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 @if (_unit is null) {
     <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
@@ -18,7 +19,9 @@
                         <MudText Typo="Typo.subtitle1">@_unit.Abbreviation</MudText>
                     </MudStack>
                     <MudSpacer/>
-                    <MudIconButton Class="pa-2" Icon="@Icons.Material.Filled.Edit" OnClick="@OpenCreateDialog"/>
+                    <AuthorizeView Policy="Admin">
+                        <MudIconButton Class="pa-2" Icon="@Icons.Material.Filled.Edit" OnClick="@OpenCreateDialog"/>
+                    </AuthorizeView>
                 </MudStack>
                 <MudDivider Class="my-3" Light="true"/>
                 <MudText Class="pl-1" Typo="Typo.body1">@_unit.Description</MudText>
@@ -59,6 +62,9 @@
                                        OnClick="@(() => OpenUserAssignmentDialog(context))"/>
                     </MudTd>
                 </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                </NoRecordsContent>
             </MudTable>
         </MudItem>
     </MudGrid>
@@ -69,9 +75,18 @@
     public int UnitId { get; set; }
 
     private Unit? _unit;
+    private bool _noUnit;
 
     protected override async Task OnParametersSetAsync() {
         _unit = await UnitService.GetByIdWithMembersAsync(UnitId);
+        if (_unit is null) _noUnit = true;
+    }
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!_noUnit) return;
+        _noUnit = false;
+        Snackbar.Add("Unit does not exist", Severity.Error);
+        NavigationManager.NavigateTo("/units", false, true);
     }
     private void OnRowClick(TableRowClickEventArgs<User> args) {
         NavigationManager.NavigateTo($"/users/{args.Item?.Id}");

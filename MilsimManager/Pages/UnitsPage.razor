@@ -7,7 +7,7 @@
 <MudStack Spacing="2">
     <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.FlexStart">
         <MudButton Class="pa-1" Variant="Variant.Filled" Size="Size.Medium">
-            <MudTextField @bind-Value="Search"
+            <MudTextField @bind-Value="_search"
                           Placeholder="Search..."
                           Immediate="true"
                           DebounceInterval="300"
@@ -15,19 +15,22 @@
                           AdornmentIcon="@Icons.Material.Filled.Search"
                           Clearable="true"
                           AutoFocus="true"
-                          Underline="false"
-            />
+                          Underline="false"/>
         </MudButton>
-        <MudButton Variant="Variant.Filled" Size="Size.Medium" OnClick="@OpenCreateDialog">Create New Unit
-        </MudButton>
+        <AuthorizeView Policy="Admin">
+            <MudButton Variant="Variant.Filled" Size="Size.Medium" OnClick="@OpenCreateDialog">
+                Create New Unit
+            </MudButton>
+        </AuthorizeView>
     </MudStack>
 
     <MudTable T="Unit"
               Items="_units"
+              Filter="FilterUnits"
               Hover="true"
               Loading="_loading"
               RowClass="cursor-pointer"
-              OnRowClick="OnRowClickEvent">
+              OnRowClick="OnRowClick">
         <ColGroup>
             <col style="width: 32px;"/>
             <col style="width: 128px;"/>
@@ -49,7 +52,6 @@
 </MudStack>
 
 @code {
-
     private List<Unit> _units = [];
     private bool _loading;
     private string? _search;
@@ -59,23 +61,22 @@
     private async Task ReloadAsync() {
         _loading = true;
         try {
-            _units = await UnitService.GetAllAsync(_search);
+            _units = await UnitService.GetAllAsync();
         } finally {
             _loading = false;
         }
     }
 
-    private void OnRowClickEvent(TableRowClickEventArgs<Unit> args) {
+    private void OnRowClick(TableRowClickEventArgs<Unit> args) {
         if (_loading) return;
         NavigationManager.NavigateTo($"/units/{args.Item?.Id}");
     }
 
-    private string? Search {
-        get => _search;
-        set {
-            _search = value;
-            InvokeAsync(ReloadAsync);
-        }
+    private bool FilterUnits(Unit unit) {
+        if (string.IsNullOrWhiteSpace(_search)) return true;
+        var term = _search.Trim();
+        return unit.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+               (unit.Abbreviation?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
     private async Task OpenCreateDialog() {
@@ -83,5 +84,4 @@
         var result = await dialog.Result;
         if (!(result?.Canceled ?? true)) await ReloadAsync();
     }
-
 }
