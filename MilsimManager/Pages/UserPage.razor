@@ -13,19 +13,11 @@
         <MudProgressCircular Indeterminate="true"/>
     </MudStack>
 } else {
-    <MudStack Row="true">
+    <MudStack Row="true" Spacing="4">
         <MudStack Style="width: 16vw; min-width: 300px; max-width: 400px;">
-            <MudPaper Style="background: transparent;" Class="pa-2" Elevation="0">
-                <MudAvatar Style="width: 100%; height: 100%; aspect-ratio: 1/1;">
-                    <MudIconButton Variant="Variant.Filled" Style="width: 100%; height: 100%; padding: 0;"
-                                   Color="Color.Dark" Ripple="@_isSelf" OnClick="@OnEditProfileImageClick">
-                        <MudIcon Style="width: 100%; height: 100%;" Icon="@Icons.Material.Rounded.Person"/>
-                    </MudIconButton>
-                </MudAvatar>
-            </MudPaper>
+            <ProfileImageButton Src="https://picsum.photos/1000" Elevation="2" Ripple="@_isSelf" OnClick="@OnEditProfileImageClick"/>
 
             <MudPaper Class="py-1" Elevation="2">
-                @*todo edit button for user rank*@
                 @*todo navigation to rank page*@
                 <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Rank</MudText>
 
@@ -49,7 +41,7 @@
                         <MudStack Class="justify-center pa-2">
                             <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
                                            OnClick="@OnEditRankClick"/>
-                            @*todo this button like this or instead a button fullwidth under the whole rank mudpaper*@
+                            @*todo this button like this or instead as a button fullwidth under the whole rank mudpaper*@
                         </MudStack>
                     </AuthorizeView>
                 </MudStack>
@@ -159,7 +151,6 @@
             </MudPaper>
             <AuthorizeView Policy="Admin">
                 <MudPaper Class="py-1" Elevation="2">
-                    @*todo add a way to edit admin note*@
                     <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Admin Note</MudText>
                     <MudDivider/>
                     <MudTextField @bind-Value="@_adminNoteText"
