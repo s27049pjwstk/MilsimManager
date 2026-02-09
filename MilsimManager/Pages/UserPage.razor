@@ -7,6 +7,7 @@
 @inject ISnackbar Snackbar
 @inject IAuthorizationService AuthorizationService
 @inject IErrorHandler ErrorHandler
+@inject ICertificationService CertificationService
 
 @if (_user is null) {
     <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
@@ -140,10 +141,10 @@
                 @if (_certifications.Count == 0) {
                     <MudText Typo="Typo.body2" Class="px-2 pt-1 mud-text-secondary">None</MudText>
                 } else {
-                    <MudList T="string" Dense="true">
+                    <MudList T="Certification" Dense="true">
                         @foreach (var cert in _certifications) {
-                            <MudListItem T="string" Class="px-2 py-0" Href="@($"/certifications/{cert}")">
-                                @cert
+                            <MudListItem T="Certification" Class="px-2 py-0" Href="@($"/certifications/{cert.Id}")">
+                                @cert.Name
                             </MudListItem>
                         }
                     </MudList>
@@ -251,15 +252,39 @@
                     </MudTabPanel>
 
                     <MudTabPanel Text="Certifications">
-                        <MudTable Items="@_user.UserCertifications.OrderByDescending(x => x.Date)"
-                                  Dense="true" Hover="true" Elevation="0">
+                        <MudTable T="UserCertification"
+                                  Items="@_user.UserCertifications.OrderBy(x => x.Certification.Name)"
+                                  Dense="true" Hover="true" Elevation="0"
+                                  RowClass="cursor-pointer"
+                                  OnRowClick="@OnCertificationRowClick">
+                            <ColGroup>
+                                <col style="width: 120px;"/>
+                                <col style="width: 40%;"/>
+                                <col style="width: 40%;"/>
+                                <col style="width: 10%;"/>
+                            </ColGroup>
                             <HeaderContent>
                                 <MudTh>Date</MudTh>
                                 <MudTh>Certification</MudTh>
+                                <MudTh>Approved by</MudTh>
+                                <MudTh/>
                             </HeaderContent>
-                            <RowTemplate>
-                                <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
-                                <MudTd DataLabel="Certification">@context.Certification.Name</MudTd>
+                            <RowTemplate Context="userCert">
+                                <MudTd DataLabel="Date">@userCert.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd DataLabel="Certification">@userCert.Certification.Name</MudTd>
+                                <MudTd DataLabel="Approved by">@userCert.ApprovedByName</MudTd>
+                                <MudTd Class="d-flex justify-end gap-2">
+                                    @if (!string.IsNullOrWhiteSpace(userCert.Comment)) {
+                                        <MudIconButton Class="pa-2" Size="Size.Small"
+                                                       Icon="@Icons.Material.Filled.Comment"
+                                                       OnClick="@(() => ShowCertificationComment(userCert))"/>
+                                    }
+                                    <AuthorizeView Policy="Admin">
+                                        <MudIconButton Class="pa-2" Size="Size.Small"
+                                                       Icon="@Icons.Material.Filled.Delete"
+                                                       OnClick="@(() => OnRemoveUserCertificationClick(userCert))"/>
+                                    </AuthorizeView>
+                                </MudTd>
                             </RowTemplate>
                             <NoRecordsContent>
                                 <MudText Class="pa-4 mud-text-secondary">None</MudText>
@@ -289,23 +314,14 @@
     public int UserId { get; set; }
 
     private User? _user;
-    private List<string> _certifications = [];
+    private List<Certification> _certifications = [];
 
     protected override async Task OnParametersSetAsync() {
-        _user = await UserService.GetByIdAsync(UserId);
-        if (_user is null) {
-            _noUser = true;
-            return;
-        }
-        _adminNoteText = _user.Note;
-
+        await RefreshUserAsync();
+        if (_user is null) return;
         var authState = await AuthenticationStateTask;
         _isSelf = authState.User.FindFirstValue("auth_UserId") == UserId.ToString();
         _isAdmin = (await AuthorizationService.AuthorizeAsync(authState.User, policyName: "Admin")).Succeeded;
-
-        _certifications = _user.UserCertifications
-            .Select(x => x.Certification.Name)
-            .ToList();
     }
 
     protected override void OnAfterRender(bool firstRender) {
@@ -325,11 +341,63 @@
         var dialog = await DialogService.ShowAsync<UserAssignmentDialog>("", new DialogParameters { ["User"] = _user });
         var result = await dialog.Result;
         if (result?.Data is User updated) {
-            _user = updated;
+            SetUser(updated);
         } else if (!(result?.Canceled ?? true)) {
-            _user = await UserService.GetByIdAsync(UserId);
+            await RefreshUserAsync();
         }
     }
+
+    private async Task ShowCertificationComment(UserCertification userCertification) {
+        if (string.IsNullOrWhiteSpace(userCertification.Comment)) return;
+        await DialogService.ShowMessageBox(
+        $"Comment for {userCertification.Certification.Name}",
+        userCertification.Comment
+        );
+    }
+
+    private void OnCertificationRowClick(TableRowClickEventArgs<UserCertification> args) =>
+        NavigationManager.NavigateTo($"/certifications/{args.Item?.CertificationId}");
+
+    private async Task OnRemoveUserCertificationClick(UserCertification userCertification) {
+        if (_user is null) return;
+        var confirm = await DialogService.ShowMessageBox(
+        "Remove certification",
+        $"Remove {userCertification.Certification.Name} from {_user.Name}?",
+        "Remove",
+        "Cancel",
+        options: new DialogOptions { FullWidth = false }
+        );
+
+        if (confirm != true) return;
+
+        try {
+            await CertificationService.RemoveUserAsync(userCertification.CertificationId, _user.Id);
+            Snackbar.Add("Certification removed", Severity.Success);
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to remove certification");
+        } finally {
+            await RefreshUserAsync();
+        }
+    }
+
+    private async Task RefreshUserAsync() => SetUser(await UserService.GetByIdAsync(UserId));
+
+    private void SetUser(User? user) {
+        _user = user;
+        if (_user is null) {
+            _noUser = true;
+            _certifications = [];
+            _adminNoteText = null;
+            return;
+        }
+        _noUser = false;
+        _adminNoteText = _user.Note;
+        _certifications = _user.UserCertifications
+            .Select(x => x.Certification)
+            .OrderBy(x => x.Name)
+            .ToList();
+    }
+
     private void OnEditProfileImageClick() {
         if (!_isSelf) return;
         Snackbar.Add("Not implemented", Severity.Warning);
@@ -352,7 +420,7 @@
             Snackbar.Add($"Status set to {(_user.Active ? "Active" : "Inactive")}", Severity.Success);
         } catch (Exception ex) {
             ErrorHandler.HandleException(ex, "Failed to update status");
-            _user = await UserService.GetByIdAsync(UserId);
+            await RefreshUserAsync();
         } finally {
             _statusUpdateDisabled = false;
         }
@@ -363,9 +431,9 @@
         var dialog = await DialogService.ShowAsync<UserSteamIdDialog>("", new DialogParameters { ["User"] = _user });
         var result = await dialog.Result;
         if (result?.Data is User updated) {
-            _user = updated;
+            SetUser(updated);
         } else if (!(result?.Canceled ?? true)) {
-            _user = await UserService.GetByIdAsync(UserId);
+            await RefreshUserAsync();
         }
     }
     private async Task OnEditRankClick() {
@@ -373,9 +441,9 @@
         var dialog = await DialogService.ShowAsync<UserRankDialog>("", new DialogParameters { ["User"] = _user });
         var result = await dialog.Result;
         if (result?.Data is User updated) {
-            _user = updated;
+            SetUser(updated);
         } else if (!(result?.Canceled ?? true)) {
-            _user = await UserService.GetByIdAsync(UserId);
+            await RefreshUserAsync();
         }
     }
     private async Task OnEditAdminNoteSaveAsync() {

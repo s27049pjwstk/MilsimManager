@@ -1,0 +1,139 @@
+﻿@inject IErrorHandler ErrorHandler
+@inject ICertificationService CertificationService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">
+            @(Certification is null ? "Create New Certification" : "Edit Certification")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" Disabled="_disabled">
+            <MudTextField @bind-Value="_dto.Name"
+                          Label="Name"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="100"
+                          Validation="@ValidateNameAsync"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          Required="true"/>
+            <MudTextField @bind-Value="_dto.Description"
+                          Label="Description"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="1000"
+                          AutoGrow="true"
+                          Lines="4"/>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
+        @if (Certification is not null) {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       Disabled="_disabled"
+                       OnClick="@DeleteAsync">
+                Delete
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
+            @(Certification is null ? "Create" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public Certification? Certification { get; set; }
+
+    public enum Result {
+        Created,
+        Updated,
+        Deleted,
+        Failed
+    }
+
+    private MudForm _form = null!;
+    private bool _disabled;
+    private CertificationDto _dto = new();
+
+    private sealed class CertificationDto {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+
+    protected override void OnParametersSet() {
+        if (Certification is null) {
+            _dto = new CertificationDto();
+            return;
+        }
+
+        _dto = new CertificationDto {
+            Name = Certification.Name,
+            Description = Certification.Description
+        };
+    }
+
+    private async Task<string?> ValidateNameAsync(string? name) {
+        if (name is null) return null;
+        if (await CertificationService.NameExistsAsync(name.Trim(), Certification?.Id))
+            return "A certification with this name already exists";
+        return null;
+    }
+
+    private async Task SaveAsync() {
+        _dto.Name = _dto.Name.Trim();
+        _dto.Description = _dto.Description?.Trim();
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _disabled = true;
+        try {
+            if (Certification is null) {
+                var created = await CertificationService.CreateAsync(_dto.Name, _dto.Description);
+                Snackbar.Add($"Certification {created.Name} created", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(Result.Created));
+            } else {
+                var updated = await CertificationService.UpdateAsync(Certification.Id, Certification.Version, _dto.Name, _dto.Description);
+                Snackbar.Add($"Certification {updated.Name} updated", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(Result.Updated));
+            }
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, Certification is null ? "Failed to create certification" : "Failed to update certification");
+            MudDialog.Close(DialogResult.Ok(Result.Failed));
+        } finally {
+            _disabled = false;
+        }
+    }
+
+    private async Task DeleteAsync() {
+        if (Certification is null) return;
+        var confirm = await DialogService.ShowMessageBox(
+        "Delete Certification",
+        $"Are you sure you want to delete {Certification.Name}?",
+        "Delete",
+        "Cancel",
+        options: new DialogOptions { FullWidth = false }
+        );
+
+        if (confirm != true) return;
+
+        _disabled = true;
+        try {
+            await CertificationService.DeleteAsync(Certification.Id);
+            Snackbar.Add("Certification deleted", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(Result.Deleted));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to delete certification");
+            MudDialog.Close(DialogResult.Ok(Result.Failed));
+        } finally {
+            _disabled = false;
+        }
+    }
+}
