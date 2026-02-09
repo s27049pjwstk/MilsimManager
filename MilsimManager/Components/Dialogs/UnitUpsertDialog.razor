@@ -1,10 +1,13 @@
 ﻿@inject IErrorHandler ErrorHandler
 @inject IUnitService UnitService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h5">@_dialogTitleText</MudText>
+        <MudText Typo="Typo.h5">
+            @(Unit is null ? "Create New Unit" : "Edit Unit")
+        </MudText>
     </TitleContent>
     <DialogContent>
         <MudForm @ref="_form" Disabled="_disabled">
@@ -34,20 +37,23 @@
         @if (Unit is not null) {
             <MudButton Variant="Variant.Filled"
                        Color="Color.Error"
-                       Disabled="@_disabled"
+                       Disabled="_disabled"
                        OnClick="@DeleteAsync">
                 Delete
             </MudButton>
         }
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled"
-                   OnClick="@SaveAsync">@_submitButtonText</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_disabled"
+                   OnClick="@SaveAsync">
+            @(Unit is null ? "Create" : "Save")
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
 
 
 @code {
-
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; } = null!;
 
@@ -65,13 +71,9 @@
     private bool _disabled;
 
     private UnitDto _dto = new();
-    private string _submitButtonText = "Create";
-    private string _dialogTitleText = "Create New Unit";
 
     protected override void OnParametersSet() {
         if (Unit is null) return;
-        _submitButtonText = "Save";
-        _dialogTitleText = "Edit Unit";
         _dto = new UnitDto {
             Name = Unit.Name,
             Abbreviation = Unit.Abbreviation,
@@ -92,10 +94,10 @@
         return null;
     }
 
-    private async Task<string?> ValidateAbbreviationAsync(string? name) {
-        if (name is null) return null;
-        if (await UnitService.AbbreviationExistsAsync(name.Trim(), Unit?.Id))
-            return "A unit with this name already exists";
+    private async Task<string?> ValidateAbbreviationAsync(string? abbreviation) {
+        if (abbreviation is null) return null;
+        if (await UnitService.AbbreviationExistsAsync(abbreviation.Trim(), Unit?.Id))
+            return "A unit with this abbreviation already exists";
         return null;
     }
 
@@ -113,6 +115,10 @@
                 Snackbar.Add($"Unit {created.Name} created", Severity.Success);
                 MudDialog.Close(DialogResult.Ok(Result.Created));
             } else {
+                if (Unit.Name == _dto.Name && Unit.Abbreviation == _dto.Abbreviation && Unit.Description == _dto.Description) {
+                    MudDialog.Cancel();
+                    return;
+                }
                 var updated = await UnitService.UpdateAsync(Unit.Id, Unit.Version, _dto.Name, _dto.Abbreviation, _dto.Description);
                 Snackbar.Add($"Unit {updated.Name} updated", Severity.Success);
                 MudDialog.Close(DialogResult.Ok(Result.Updated));
@@ -127,6 +133,16 @@
 
     private async Task DeleteAsync() {
         if (Unit is null) return;
+        var confirm = await DialogService.ShowMessageBox(
+        "Delete Unit",
+        $"Are you sure you want to delete {Unit.Name}?",
+        "Delete",
+        "Cancel",
+        options: new DialogOptions { FullWidth = false }
+        );
+
+        if (confirm != true) return;
+
         _disabled = true;
         try {
             await UnitService.DeleteAsync(Unit.Id);

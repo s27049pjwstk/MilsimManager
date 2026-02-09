@@ -5,7 +5,9 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h5">@DialogTitleText</MudText>
+        <MudText Typo="Typo.h5">
+            @(User.Unit is null ? $"Assign {User.Name} to unit" : $"Change assignment of {User.Name}")
+        </MudText>
     </TitleContent>
     <DialogContent>
         <MudForm Disabled="_disabled">
@@ -30,7 +32,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_disabled" OnClick="@SaveAsync">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
             Save
         </MudButton>
     </DialogActions>
@@ -50,29 +52,20 @@
 
     private bool _disabled;
 
-    private AssignmentDto _dto = new();
-    private string DialogTitleText => User.Unit is null ? $"Assign {User.Name} to unit" : $"Change assignment of {User.Name}";
     private List<Unit> _units = [];
-
-    protected override void OnParametersSet() {
-        _dto = new AssignmentDto {
-            Unit = User.Unit,
-            UnitRole = User.UnitRole
-        };
-    }
-
-    protected override async Task OnInitializedAsync() {
-        await MudDialog.SetOptionsAsync(MudDialog.Options with {
-            FullWidth = true,
-            CloseOnEscapeKey = true,
-            MaxWidth = MaxWidth.Small
-        });
-        _units = await UnitService.GetAllAsync();
-    }
+    private AssignmentDto _dto = new();
 
     private sealed class AssignmentDto {
         public Unit? Unit { get; set; }
         public string? UnitRole { get; set; }
+    }
+
+    protected override async Task OnParametersSetAsync() {
+        _dto = new AssignmentDto {
+            Unit = User.Unit,
+            UnitRole = User.UnitRole
+        };
+        _units = await UnitService.GetAllAsync();
     }
 
     private static string GetUnitLabel(Unit unit) =>

@@ -4,7 +4,9 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h5">Edit SteamID64</MudText>
+        <MudText Typo="Typo.h5">
+            @($"Edit SteamID64 of {User.Name}")
+        </MudText>
     </TitleContent>
     <DialogContent>
         <MudForm @ref="_form" Disabled="_disabled">
@@ -37,14 +39,6 @@
     private string? _steamId;
 
     protected override void OnParametersSet() => _steamId = User.SteamId;
-
-    protected override async Task OnInitializedAsync() {
-        await MudDialog.SetOptionsAsync(MudDialog.Options with {
-            FullWidth = true,
-            CloseOnEscapeKey = true,
-            MaxWidth = MaxWidth.Small
-        });
-    }
 
     private static string? ValidateSteamId(string? value) {
         if (string.IsNullOrWhiteSpace(value)) return null;

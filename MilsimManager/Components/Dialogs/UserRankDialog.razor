@@ -4,7 +4,9 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h5">Update Rank</MudText>
+        <MudText Typo="Typo.h5">
+            @($"Edit rank of {User.Name}")
+        </MudText>
     </TitleContent>
     <DialogContent>
         <MudForm Disabled="_disabled">
@@ -45,16 +47,8 @@
     private Rank? _selectedRank;
     private List<Rank> _ranks = [];
 
-    protected override void OnParametersSet() {
+    protected override async Task OnParametersSetAsync() {
         _selectedRank = User.Rank;
-    }
-
-    protected override async Task OnInitializedAsync() {
-        await MudDialog.SetOptionsAsync(MudDialog.Options with {
-            FullWidth = true,
-            CloseOnEscapeKey = true,
-            MaxWidth = MaxWidth.Small
-        });
         _ranks = await UserService.GetRanksAsync();
     }
 
