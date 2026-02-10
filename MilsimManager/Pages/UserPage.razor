@@ -114,7 +114,7 @@
                            OnClick="@(() => ClipboardService.CopyToClipboard(_user.DateJoined.ToDiscordTimestamp()))">
                     <MudText Align="Align.Left" Style="line-height: 1.2;" Typo="Typo.body1">
                         <b>Joined</b><br/>
-                        @_user.DateJoined.ToLocalTime().ToString("d") <i>@_user.DateJoined.ToLocalTime().TimeAgo()</i>
+                        @_user.DateJoined.ToLocalTime().ToString("d") <i>@_user.DateJoined.ToLocalTime().TimeRelative()</i>
                     </MudText>
                 </MudButton>
                 <MudButton FullWidth="true" Variant="Variant.Text" Class="justify-start rounded-0"

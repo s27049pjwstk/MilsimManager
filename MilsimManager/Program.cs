@@ -44,6 +44,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<ICertificationService, CertificationService>();
 builder.Services.AddScoped<IAwardService, AwardService>();
+builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IRankService, RankService>();
 builder.Services.AddScoped<IDevService, DevService>();
 builder.Services.AddScoped<IClipboardService, ClipboardService>();

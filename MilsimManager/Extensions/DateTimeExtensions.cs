@@ -1,8 +1,20 @@
 ﻿namespace MilsimManager.Extensions;
 
 public static class DateTimeExtensions {
-    public static string TimeAgo(this DateTime date) {
+    public static string TimeRelative(this DateTime date) {
         var span = DateTime.Now - date;
+        if (span.TotalSeconds < 0) {
+            var future = date - DateTime.Now;
+            if (future.TotalHours < 1)
+                return $"in {(int)future.TotalMinutes} min";
+            return future.TotalDays switch {
+                < 2 => $"in {(int)future.TotalHours} h",
+                < 60 => $"in {(int)future.TotalDays} days",
+                < 730 => $"in {(int)(future.TotalDays / 30)} months",
+                _ => $"in {(int)(future.TotalDays / 365)} years"
+            };
+        }
+
         if (span.TotalHours < 1)
             return $"{(int)span.TotalMinutes} min ago";
         return span.TotalDays switch {
