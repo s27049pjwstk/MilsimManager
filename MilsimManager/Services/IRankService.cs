@@ -11,4 +11,5 @@ public interface IRankService {
     Task<bool> NameExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default);
     Task<bool> CodeExistsAsync(string? code, int? excludeId = null, CancellationToken cancellationToken = default);
     Task<bool> AbbreviationExistsAsync(string? abbreviation, int? excludeId = null, CancellationToken cancellationToken = default);
+    Task UpdateSortOrderAsync(IReadOnlyList<int> orderedRankIds, CancellationToken cancellationToken = default);
 }

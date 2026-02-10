@@ -160,4 +160,37 @@ public class RankService(IDbContextFactory<Context> dbFactory) : IRankService {
         if (excludeId is not null) q = q.Where(r => r.Id != excludeId.Value);
         return await q.AnyAsync(cancellationToken);
     }
+
+    public async Task UpdateSortOrderAsync(IReadOnlyList<int> orderedRankIds, CancellationToken cancellationToken = default) {
+        if (orderedRankIds.Count == 0) throw new AppException("No ranks provided");
+        var rankIds = orderedRankIds.Distinct().ToList();
+        if (rankIds.Count != orderedRankIds.Count) throw new AppException("Rank list is invalid");
+
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        try {
+            var ranks = await db.Ranks.ToListAsync(cancellationToken);
+
+            if (ranks.Count == 0) throw new AppException("No ranks found");
+            if (ranks.Count != rankIds.Count) throw new AppException("Rank list is invalid");
+            if (ranks.Any(r => !rankIds.Contains(r.Id))) throw new AppException("Rank list is incomplete");
+
+            var maxSortOrder = ranks.Max(r => r.SortOrder) + 1;
+            var byId = ranks.ToDictionary(r => r.Id);
+
+            await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+
+            for (var i = 0; i < rankIds.Count; i++) byId[rankIds[i]].SortOrder = maxSortOrder + i;
+            await db.SaveChangesAsync(cancellationToken);
+
+            for (var i = 0; i < rankIds.Count; i++) byId[rankIds[i]].SortOrder = 1 + i;
+            await db.SaveChangesAsync(cancellationToken);
+
+            await tx.CommitAsync(cancellationToken);
+        } catch (DbUpdateConcurrencyException) {
+            throw new AppException("Concurrency error");
+        } catch (DbUpdateException) {
+            throw new AppException("Failed to update database");
+        }
+    }
 }

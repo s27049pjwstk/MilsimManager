@@ -1,0 +1,80 @@
+﻿@inject IRankService RankService
+@inject IErrorHandler ErrorHandler
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">Reorder Ranks</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudDropContainer T="Rank" Items="@_ranks" ItemDropped="@OnItemDropped">
+            <ChildContent>
+                <MudDropZone T="Rank"
+                             AllowReorder="true"
+                             ItemsSelector="@(_ => true)"
+                             Class="d-flex flex-column gap-2"/>
+            </ChildContent>
+            <ItemRenderer>
+                <MudPaper Class="pa-2 d-flex align-center" Elevation="4">
+                    <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Class="mr-2"/>
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.subtitle1">@context.Name</MudText>
+                        @if (!string.IsNullOrWhiteSpace(context.Abbreviation) || !string.IsNullOrWhiteSpace(context.Code)) {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                @context.Abbreviation
+                                @if (!string.IsNullOrWhiteSpace(context.Abbreviation) && !string.IsNullOrWhiteSpace(context.Code)) {
+                                    @(" | ")
+                                }
+                                @context.Code
+                            </MudText>
+                        }
+                    </MudStack>
+                </MudPaper>
+            </ItemRenderer>
+        </MudDropContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public required List<Rank> Ranks { get; set; }
+
+    private bool _disabled;
+    private List<Rank> _ranks = [];
+
+    protected override void OnParametersSet() {
+        _ranks = Ranks
+            .OrderBy(r => r.SortOrder)
+            .ThenBy(r => r.Name)
+            .ToList();
+    }
+
+    private void OnItemDropped(MudItemDropInfo<Rank> info) {
+        if (info.Item is null) return;
+        _ranks.Remove(info.Item);
+        _ranks.Insert(int.Clamp(info.IndexInZone, 0, _ranks.Count), info.Item);
+    }
+
+    private async Task SaveAsync() {
+        _disabled = true;
+        try {
+            await RankService.UpdateSortOrderAsync(_ranks.Select(r => r.Id).ToList());
+            Snackbar.Add("Rank order updated", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to update rank order");
+            MudDialog.Close(DialogResult.Ok(false));
+        } finally {
+            _disabled = false;
+        }
+    }
+}
