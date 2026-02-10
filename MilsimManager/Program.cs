@@ -43,6 +43,7 @@ builder.Services.AddMudServices(config => {
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<ICertificationService, CertificationService>();
+builder.Services.AddScoped<IAwardService, AwardService>();
 builder.Services.AddScoped<IDevService, DevService>();
 builder.Services.AddScoped<IClipboardService, ClipboardService>();
 builder.Services.AddScoped<IErrorHandler, ErrorHandler>();
