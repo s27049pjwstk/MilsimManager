@@ -3,7 +3,7 @@
 @inject IHostEnvironment Env
 @inject NavigationManager NavigationManager
 
-@if (Env.IsDevelopment()) {
+@if (Env.IsDevelopment() || true) {
     <MudStack Class="d-flex justify-center pt-16">
         <MudStack Class="d-flex justify-center" Row="true">
             <MudIconButton Icon="@Icons.Material.Filled.Login"

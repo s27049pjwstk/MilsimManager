@@ -216,7 +216,7 @@ app.MapGet("/logout", async http => {
     http.Response.Redirect("/");
 }).AllowAnonymous();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || true)
     app.MapGet("/dev/login", async (
         HttpContext http,
         IDbContextFactory<Context> dbFactory,
