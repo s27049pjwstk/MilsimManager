@@ -8,6 +8,7 @@
 @inject IAuthorizationService AuthorizationService
 @inject IErrorHandler ErrorHandler
 @inject ICertificationService CertificationService
+@inject IAwardService AwardService
 
 @if (_user is null) {
     <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
@@ -181,16 +182,39 @@
             <MudPaper Class="pa-2">
                 <MudTabs Rounded="true" Elevation="0">
                     <MudTabPanel Text="Awards">
-                        <MudTable Items="@(_user.UserAwards.OrderByDescending(x => x.Date))"
-                                  Dense="true" Hover="true" Elevation="0">
+                        <MudTable T="UserAward"
+                                  Items="@_user.UserAwards.OrderByDescending(x => x.Date)"
+                                  Dense="true" Hover="true" Elevation="0"
+                                  RowClass="cursor-pointer"
+                                  OnRowClick="@OnAwardRowClick">
+                            <ColGroup>
+                                <col style="width: 120px;"/>
+                                <col style="width: 40%;"/>
+                                <col style="width: 40%;"/>
+                                <col style="width: 10%;"/>
+                            </ColGroup>
                             <HeaderContent>
                                 <MudTh>Date</MudTh>
                                 <MudTh>Award</MudTh>
+                                <MudTh>Approved by</MudTh>
+                                <MudTh/>
                             </HeaderContent>
-                            <RowTemplate>
-                                <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
-                                @*todo add award images*@
-                                <MudTd DataLabel="Award">@context.Award.Name</MudTd>
+                            <RowTemplate Context="userAward">
+                                <MudTd DataLabel="Date">@userAward.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd DataLabel="Award">@userAward.Award.Name</MudTd>
+                                <MudTd DataLabel="Approved by">@userAward.ApprovedByName</MudTd>
+                                <MudTd Class="d-flex justify-end gap-2">
+                                    @if (!string.IsNullOrWhiteSpace(userAward.Comment)) {
+                                        <MudIconButton Class="pa-2" Size="Size.Small"
+                                                       Icon="@Icons.Material.Filled.Comment"
+                                                       OnClick="@(() => ShowAwardComment(userAward))"/>
+                                    }
+                                    <AuthorizeView Policy="Admin">
+                                        <MudIconButton Class="pa-2" Size="Size.Small"
+                                                       Icon="@Icons.Material.Filled.Delete"
+                                                       OnClick="@(() => OnRemoveUserAwardClick(userAward))"/>
+                                    </AuthorizeView>
+                                </MudTd>
                             </RowTemplate>
                             <NoRecordsContent>
                                 <MudText Class="pa-4 mud-text-secondary">None</MudText>
@@ -358,6 +382,17 @@
     private void OnCertificationRowClick(TableRowClickEventArgs<UserCertification> args) =>
         NavigationManager.NavigateTo($"/certifications/{args.Item?.CertificationId}");
 
+    private async Task ShowAwardComment(UserAward userAward) {
+        if (string.IsNullOrWhiteSpace(userAward.Comment)) return;
+        await DialogService.ShowMessageBox(
+        $"Comment for {userAward.Award.Name}",
+        userAward.Comment
+        );
+    }
+
+    private void OnAwardRowClick(TableRowClickEventArgs<UserAward> args) =>
+        NavigationManager.NavigateTo($"/awards/{args.Item?.AwardId}");
+
     private async Task OnRemoveUserCertificationClick(UserCertification userCertification) {
         if (_user is null) return;
         var confirm = await DialogService.ShowMessageBox(
@@ -375,6 +410,28 @@
             Snackbar.Add("Certification removed", Severity.Success);
         } catch (Exception ex) {
             ErrorHandler.HandleException(ex, "Failed to remove certification");
+        } finally {
+            await RefreshUserAsync();
+        }
+    }
+
+    private async Task OnRemoveUserAwardClick(UserAward userAward) {
+        if (_user is null) return;
+        var confirm = await DialogService.ShowMessageBox(
+        "Remove award",
+        $"Remove {userAward.Award.Name} from {_user.Name}?",
+        "Remove",
+        "Cancel",
+        options: new DialogOptions { FullWidth = false }
+        );
+
+        if (confirm != true) return;
+
+        try {
+            await AwardService.RemoveUserAsync(userAward.AwardId, _user.Id);
+            Snackbar.Add("Award removed", Severity.Success);
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to remove award");
         } finally {
             await RefreshUserAsync();
         }

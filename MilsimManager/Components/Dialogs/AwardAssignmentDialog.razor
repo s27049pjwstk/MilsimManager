@@ -1,0 +1,91 @@
+﻿@inject IAwardService AwardService
+@inject IUserService UserService
+@inject IErrorHandler ErrorHandler
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">Assign user to @Award.Name</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" Disabled="_disabled">
+            <MudAutocomplete T="User"
+                             @bind-Value="_selectedUser"
+                             Label="User"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             SearchFunc="SearchUsersAsync"
+                             ToStringFunc="@(x => x?.Name)"
+                             Clearable="true"
+                             Required="true"
+                             TextUpdateSuppression="false"
+                             DebounceInterval="300"
+                             ResetValueOnEmptyText="true"
+                             CoerceText="true"
+                             MaxItems="15"/>
+            <MudTextField @bind-Value="_comment"
+                          Label="Comment"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="1000"
+                          Lines="4"
+                          Clearable="true"/>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
+            Assign
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = null!;
+
+    [Parameter]
+    public required Award Award { get; set; }
+
+    private bool _disabled;
+    private MudForm _form = null!;
+    private User? _selectedUser;
+    private string? _comment;
+    private HashSet<int> _assignedUserIds = [];
+
+    protected override void OnParametersSet() {
+        _assignedUserIds = Award.UserAwards
+            .Select(ua => ua.UserId)
+            .ToHashSet();
+    }
+
+    private async Task<IEnumerable<User>> SearchUsersAsync(string? search, CancellationToken cancellationToken) {
+        var users = await UserService.GetAllAsync(string.IsNullOrWhiteSpace(search) ? null : search.Trim(), cancellationToken);
+        return _assignedUserIds.Count == 0 ? users : users.Where(u => !_assignedUserIds.Contains(u.Id));
+    }
+
+    private async Task SaveAsync() {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _disabled = true;
+        try {
+            var approver = await UserService.GetAuthenticatedUserAsync(AuthenticationStateTask);
+            await AwardService.AssignUserAsync(
+                Award.Id,
+                _selectedUser!.Id,
+                _comment,
+                approver
+            );
+            Snackbar.Add("User assigned", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to assign user");
+            MudDialog.Close(DialogResult.Ok(false));
+        } finally {
+            _disabled = false;
+        }
+    }
+}

@@ -1,0 +1,163 @@
+﻿@page "/awards/{AwardId:int}"
+@attribute [Authorize(Policy = "Active")]
+@inject NavigationManager NavigationManager
+@inject IAwardService AwardService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IErrorHandler ErrorHandler
+@inject IUserService UserService
+
+@if (_award is null) {
+    <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
+        <MudProgressCircular Indeterminate="true"/>
+    </MudStack>
+} else {
+    <MudGrid>
+        <MudItem xs="12" lg="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Start">
+                    <MudImage Class="rounded" Src="https://picsum.photos/1000" Width="150" Height="150"
+                              ObjectFit="ObjectFit.Cover"/>
+                    <MudStack Class="flex-grow-1" Spacing="0" Justify="Justify.FlexStart">
+                        <MudStack AlignItems="AlignItems.Center" Row="true">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.h5">@_award.Name</MudText>
+                            </MudStack>
+                            <MudSpacer/>
+                            <AuthorizeView Policy="Admin">
+                                <MudStack Row="true" Spacing="2">
+                                    <MudIconButton Class="pa-2" Icon="@Icons.Material.Filled.PersonAdd"
+                                                   OnClick="@OpenAssignDialog"/>
+                                    <MudIconButton Class="pa-2" Icon="@Icons.Material.Filled.Edit"
+                                                   OnClick="@OpenEditDialog"/>
+                                </MudStack>
+                            </AuthorizeView>
+                        </MudStack>
+                        <MudDivider Class="my-2" Light="true"/>
+                        <MudText Typo="Typo.body1">@_award.Description</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" lg="6">
+            <MudTable T="UserAward"
+                      Items="@_award.UserAwards.OrderBy(x => x.Date)"
+                      Hover="true"
+                      RowClass="cursor-pointer"
+                      OnRowClick="OnRowClick">
+                <ColGroup>
+                    <col style="width: 120px;"/>
+                    <col style="width: 20%;"/>
+                    <col style="width: 40%;"/>
+                    <col style="width: 80px;"/>
+                    <AuthorizeView Policy="Admin">
+                        <col style="width: 40px;"/>
+                    </AuthorizeView>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh><b>Date</b></MudTh>
+                    <MudTh><b>Rank</b></MudTh>
+                    <MudTh><b>Name</b></MudTh>
+                    <MudTh><b>Status</b></MudTh>
+                    <AuthorizeView Policy="Admin">
+                        <MudTh/>
+                    </AuthorizeView>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Date">@context.Date.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd DataLabel="Rank">@(context.User.Rank?.Abbreviation ?? context.User.Rank?.Name)</MudTd>
+                    <MudTd DataLabel="Name">@context.User.Name</MudTd>
+                    <MudTd DataLabel="Status">
+                        @switch (context.User.Status) {
+                            case "LOA":
+                                <MudChip T="string" Color="Color.Primary">LOA</MudChip> break;
+                            case "Active":
+                                <MudChip T="string" Color="Color.Success">Active</MudChip> break;
+                            default:
+                                <MudChip T="string" Color="Color.Dark">Inactive</MudChip> break;
+                        }
+                    </MudTd>
+                    <AuthorizeView Policy="Admin" Context="authState">
+                        <MudTd>
+                            <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Delete"
+                                           OnClick="@(() => OnRemoveUserClick(context))"/>
+                        </MudTd>
+                    </AuthorizeView>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = null!;
+
+    [Parameter]
+    public int AwardId { get; set; }
+
+    private Award? _award;
+    private bool _noAward;
+
+    protected override async Task OnParametersSetAsync() {
+        _award = await AwardService.GetByIdAsync(AwardId);
+        if (_award is null) _noAward = true;
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<UserAward> args) {
+        NavigationManager.NavigateTo($"/users/{args.Item?.UserId}");
+    }
+
+    private async Task OnRemoveUserClick(UserAward userAward) {
+        if (_award is null) return;
+        var confirm = await DialogService.ShowMessageBox(
+        "Remove award",
+        $"Remove {_award.Name} from {userAward.User.Name}?",
+        "Remove",
+        "Cancel",
+        options: new DialogOptions { FullWidth = false }
+        );
+        if (confirm != true) return;
+
+        try {
+            var approver = await UserService.GetAuthenticatedUserAsync(AuthenticationStateTask);
+            await AwardService.RemoveUserAsync(_award.Id, userAward.UserId);
+            Snackbar.Add($"Award removed from {userAward.User.Name}", Severity.Success);
+            _award = await AwardService.GetByIdAsync(AwardId);
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to remove award");
+        }
+    }
+
+    private async Task OpenAssignDialog() {
+        if (_award is null) return;
+        var dialog = await DialogService.ShowAsync<AwardAssignmentDialog>("", new DialogParameters {
+            ["Award"] = _award
+        });
+        var result = await dialog.Result;
+        if (!(result?.Canceled ?? true)) _award = await AwardService.GetByIdAsync(AwardId);
+    }
+
+    private async Task OpenEditDialog() {
+        if (_award is null) return;
+        var dialog = await DialogService.ShowAsync<AwardUpsertDialog>("", new DialogParameters { ["Award"] = _award });
+        var result = await dialog.Result;
+        if (!(result?.Canceled ?? true)) {
+            if (result.Data is AwardUpsertDialog.Result.Deleted) {
+                NavigationManager.NavigateTo("/awards");
+            } else {
+                _award = await AwardService.GetByIdAsync(AwardId);
+            }
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!_noAward) return;
+        _noAward = false;
+        Snackbar.Add("Award does not exist", Severity.Error);
+        NavigationManager.NavigateTo("/awards", false, true);
+    }
+}
