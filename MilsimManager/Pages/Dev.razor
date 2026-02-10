@@ -52,6 +52,6 @@
 
     protected override void OnAfterRender(bool firstRender) {
         if (!firstRender) return;
-        if (!Env.IsDevelopment()) NavigationManager.NavigateTo("/404", true, true);
+        if (!Env.IsDevelopment() && false) NavigationManager.NavigateTo("/404", true, true);
     }
 }
