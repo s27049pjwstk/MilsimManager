@@ -45,7 +45,7 @@
 
         <RowTemplate>
             <MudTd Class="d-flex align-center pa-3">
-                <MudImage Class="rounded" Src="https://picsum.photos/1000" Width="100" Height="100"
+                <MudImage Class="rounded" Src="@PlaceholderImageExtensions.GetImageUrl($"rank-{context.Id}")" Width="100" Height="100"
                           ObjectFit="ObjectFit.Cover"/>
             </MudTd>
             <MudTd DataLabel="Name">

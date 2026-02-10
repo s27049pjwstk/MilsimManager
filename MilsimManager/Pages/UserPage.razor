@@ -17,7 +17,7 @@
 } else {
     <MudStack Row="true" Spacing="4">
         <MudStack Style="width: 16vw; min-width: 300px; max-width: 400px;">
-            <ProfileImageButton Src="https://picsum.photos/1000" Elevation="2" Ripple="@(_isSelf || _isAdmin)"
+            <ProfileImageButton Src="@PlaceholderImageExtensions.GetImageUrl($"user-{UserId}")" Elevation="2" Ripple="@(_isSelf || _isAdmin)"
                                 OnClick="@OnEditProfileImageClick"/>
 
             <MudPaper Class="py-1" Elevation="2">

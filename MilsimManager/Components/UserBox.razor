@@ -1,29 +1,34 @@
 ﻿<AuthorizeView>
-    <MudPaper Class="pa-2" Elevation="2">
+    <MudPaper Class="pa-2 ma-0" Elevation="2">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-            <MudAvatar Size="Size.Medium"
-                       Color="Color.Primary">
-                <AuthorizeView Policy="Admin" Context="adminState">
-                    @*todo this is currently a simple design for debugging, final version should display only profile picture or default person icon*@
-                    <Authorized>
-                        <MudIcon Style="width: 100%; height: 100%;"
-                                 Icon="@Icons.Material.Filled.AdminPanelSettings"/>
-                    </Authorized>
-                    <NotAuthorized>
-                        <AuthorizeView Policy="Active" Context="activeState">
-                            <Authorized>
-                                <MudIcon Style="width: 100%; height: 100%;" Icon="@Icons.Material.Filled.Person"/>
-                            </Authorized>
-                            <NotAuthorized>
-                                <MudIcon Style="width: 100%; height: 100%;" Icon="@Icons.Material.Filled.Block"/>
-                            </NotAuthorized>
-                        </AuthorizeView>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </MudAvatar>
-            <MudText Typo="Typo.subtitle2" Class="pl-2 flex-grow-1">
-                @context.User.Identity?.Name
-            </MudText>
+            <MudPaper Class="d-flex flex-shrink-1" Style="height: 50px" Elevation="0">
+                <ProfileImageButton Elevation="2"
+                                    Src="@PlaceholderImageExtensions.GetImageUrl($"user-{int.Parse(context.User.FindFirstValue("auth_UserId")!)}")"/>
+            </MudPaper>
+            <MudButton Variant="Variant.Text"
+                       Class="pl-2 flex-grow-1 d-flex justify-start align-content-center"
+                       Href="@($"/users/{int.Parse(context.User.FindFirstValue("auth_UserId")!)}")">
+                <MudStack Spacing="0" Class="d-flex justify-start align-content-center">
+                    <MudText Typo="Typo.subtitle2" Class="flex-grow-1">
+                        @context.User.Identity?.Name
+                    </MudText>
+                    <AuthorizeView Policy="Admin" Context="adminState">
+                        <Authorized>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Admin</MudText>
+                        </Authorized>
+                        <NotAuthorized>
+                            <AuthorizeView Policy="Active" Context="activeState">
+                                <Authorized>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Active</MudText>
+                                </Authorized>
+                                <NotAuthorized>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Inactive</MudText>
+                                </NotAuthorized>
+                            </AuthorizeView>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </MudStack>
+            </MudButton>
             <MudIconButton Icon="@Icons.Material.Filled.Logout"
                            Size="Size.Medium"
                            Color="Color.Default"
