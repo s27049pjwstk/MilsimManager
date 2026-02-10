@@ -5,13 +5,14 @@
                Ripple="@Ripple"
                Class="rounded-circle pa-0"
                Style="width: 100%; height: 100%; position: relative;"
+               Disabled="@(!Ripple)"
                @onmouseover="@(() => _hovered = true)"
                @onmouseout="@(() => _hovered = false)"
                OnClick="@OnClick">
         <MudImage Src="@Src"
                   ObjectFit="ObjectFit.Cover"
-                  Style="@($"width: 100%; height: 100%; transition: filter 100ms ease; {(_hovered ? " filter: blur(3px);" : string.Empty)}")"/>
-        @if (_hovered) {
+                  Style="@($"width: 100%; height: 100%; transition: filter 100ms ease; {(_hovered && Ripple ? " filter: blur(3px);" : string.Empty)}")"/>
+        @if (_hovered && Ripple) {
             <MudStack Style="position: absolute; inset: 0; background-color: rgba(0,0,0,0.3);"
                       AlignItems="AlignItems.Center"
                       Justify="Justify.Center">

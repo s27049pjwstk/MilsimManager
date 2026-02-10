@@ -1,0 +1,175 @@
+﻿@inject IErrorHandler ErrorHandler
+@inject IRankService RankService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">
+            @(Rank is null ? "Create New Rank" : "Edit Rank")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" Disabled="_disabled">
+            <MudTextField @bind-Value="_dto.Name"
+                          Label="Name"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="50"
+                          Validation="@ValidateNameAsync"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          Required="true"/>
+            <MudTextField @bind-Value="_dto.Abbreviation"
+                          Label="Abbreviation"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="20"
+                          Validation="@ValidateAbbreviationAsync"
+                          Immediate="true"
+                          DebounceInterval="300"/>
+            <MudTextField @bind-Value="_dto.Code"
+                          Label="Code"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="20"
+                          Validation="@ValidateCodeAsync"
+                          Immediate="true"
+                          DebounceInterval="300"/>
+            <MudTextField @bind-Value="_dto.Description"
+                          Label="Description"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="1000"
+                          AutoGrow="true"
+                          Lines="4"/>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
+        @if (Rank is not null) {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       Disabled="_disabled"
+                       OnClick="@DeleteAsync">
+                Delete
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
+            @(Rank is null ? "Create" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public Rank? Rank { get; set; }
+
+    public enum Result {
+        Created,
+        Updated,
+        Deleted,
+        Failed
+    }
+
+    private MudForm _form = null!;
+    private bool _disabled;
+    private RankDto _dto = new();
+
+    private sealed class RankDto {
+        public string Name { get; set; } = string.Empty;
+        public string? Abbreviation { get; set; }
+        public string? Code { get; set; }
+        public string? Description { get; set; }
+    }
+
+    protected override void OnParametersSet() {
+        if (Rank is null) {
+            _dto = new RankDto();
+            return;
+        }
+
+        _dto = new RankDto {
+            Name = Rank.Name,
+            Abbreviation = Rank.Abbreviation,
+            Code = Rank.Code,
+            Description = Rank.Description
+        };
+    }
+
+    private async Task<string?> ValidateNameAsync(string? name) {
+        if (name is null) return null;
+        if (await RankService.NameExistsAsync(name.Trim(), Rank?.Id))
+            return "A rank with this name already exists";
+        return null;
+    }
+
+    private async Task<string?> ValidateAbbreviationAsync(string? abbreviation) {
+        if (string.IsNullOrWhiteSpace(abbreviation)) return null;
+        if (await RankService.AbbreviationExistsAsync(abbreviation.Trim(), Rank?.Id))
+            return "A rank with this abbreviation already exists";
+        return null;
+    }
+
+    private async Task<string?> ValidateCodeAsync(string? code) {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+        if (await RankService.CodeExistsAsync(code.Trim(), Rank?.Id))
+            return "A rank with this code already exists";
+        return null;
+    }
+
+    private async Task SaveAsync() {
+        _dto.Name = _dto.Name.Trim();
+        _dto.Abbreviation = _dto.Abbreviation?.Trim();
+        _dto.Code = _dto.Code?.Trim();
+        _dto.Description = _dto.Description?.Trim();
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _disabled = true;
+        try {
+            if (Rank is null) {
+                var created = await RankService.CreateAsync(_dto.Name, _dto.Abbreviation, _dto.Code, _dto.Description);
+                Snackbar.Add($"Rank {created.Name} created", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(Result.Created));
+            } else {
+                var updated = await RankService.UpdateAsync(Rank.Id, Rank.Version, _dto.Name, _dto.Abbreviation, _dto.Code, _dto.Description);
+                Snackbar.Add($"Rank {updated.Name} updated", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(Result.Updated));
+            }
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, Rank is null ? "Failed to create rank" : "Failed to update rank");
+            MudDialog.Close(DialogResult.Ok(Result.Failed));
+        } finally {
+            _disabled = false;
+        }
+    }
+
+    private async Task DeleteAsync() {
+        if (Rank is null) return;
+        var confirm = await DialogService.ShowMessageBox(
+        "Delete Rank",
+        $"Are you sure you want to delete {Rank.Name} rank?",
+        "Delete",
+        "Cancel",
+        options: new DialogOptions { FullWidth = false }
+        );
+
+        if (confirm != true) return;
+
+        _disabled = true;
+        try {
+            await RankService.DeleteAsync(Rank.Id);
+            Snackbar.Add("Rank deleted", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(Result.Deleted));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to delete rank");
+            MudDialog.Close(DialogResult.Ok(Result.Failed));
+        } finally {
+            _disabled = false;
+        }
+    }
+}

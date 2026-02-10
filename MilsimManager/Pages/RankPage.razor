@@ -1,0 +1,123 @@
+﻿@page "/ranks/{RankId:int}"
+@attribute [Authorize(Policy = "Active")]
+@inject NavigationManager NavigationManager
+@inject IRankService RankService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+@if (_rank is null) {
+    <MudStack Class="pt-16" AlignItems="AlignItems.Center" Justify="Justify.Center">
+        <MudProgressCircular Indeterminate="true"/>
+    </MudStack>
+} else {
+    <MudGrid>
+        <MudItem xs="12" lg="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Start">
+                    <MudImage Class="rounded" Src="https://picsum.photos/1000" Width="150" Height="150"
+                              ObjectFit="ObjectFit.Cover"/>
+                    <MudStack Class="flex-grow-1" Spacing="0" Justify="Justify.FlexStart">
+                        <MudStack AlignItems="AlignItems.Center" Row="true">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.h5">@_rank.Name</MudText>
+                                @if (!string.IsNullOrWhiteSpace(_rank.Abbreviation) || !string.IsNullOrWhiteSpace(_rank.Code)) {
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        @_rank.Abbreviation
+                                        @if (!string.IsNullOrWhiteSpace(_rank.Abbreviation) && !string.IsNullOrWhiteSpace(_rank.Code)) {
+                                            @(" | ")
+                                        }
+                                        @_rank.Code
+                                    </MudText>
+                                }
+                            </MudStack>
+                            <MudSpacer/>
+                            <AuthorizeView Policy="Admin">
+                                <MudStack Row="true" Spacing="2">
+                                    <MudIconButton Class="pa-2" Icon="@Icons.Material.Filled.Edit"
+                                                   OnClick="@OpenEditDialog"/>
+                                </MudStack>
+                            </AuthorizeView>
+                        </MudStack>
+                        <MudDivider Class="my-2" Light="true"/>
+                        <MudText Typo="Typo.body1">@_rank.Description</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" lg="6">
+            <MudTable T="User"
+                      Items="@_rank.Users.OrderBy(x => x.Name)"
+                      Hover="true"
+                      RowClass="cursor-pointer"
+                      OnRowClick="OnRowClick">
+                <ColGroup>
+                    <col style="width: 40%;"/>
+                    <col style="width: 25%;"/>
+                    <col style="width: 25%;"/>
+                    <col style="width: 10%;"/>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh><b>Name</b></MudTh>
+                    <MudTh><b>Unit</b></MudTh>
+                    <MudTh><b>Position</b></MudTh>
+                    <MudTh><b>Status</b></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Unit">@(context.Unit?.Abbreviation ?? context.Unit?.Name)</MudTd>
+                    <MudTd DataLabel="Position">@context.UnitRole</MudTd>
+                    <MudTd DataLabel="Status">
+                        @switch (context.Status) {
+                            case "LOA":
+                                <MudChip T="string" Color="Color.Primary">LOA</MudChip> break;
+                            case "Active":
+                                <MudChip T="string" Color="Color.Success">Active</MudChip> break;
+                            default:
+                                <MudChip T="string" Color="Color.Dark">Inactive</MudChip> break;
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4 mud-text-secondary">None</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter]
+    public int RankId { get; set; }
+
+    private Rank? _rank;
+    private bool _noRank;
+
+    protected override async Task OnParametersSetAsync() {
+        _rank = await RankService.GetByIdAsync(RankId);
+        if (_rank is null) _noRank = true;
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<User> args) {
+        NavigationManager.NavigateTo($"/users/{args.Item?.Id}");
+    }
+
+    private async Task OpenEditDialog() {
+        if (_rank is null) return;
+        var dialog = await DialogService.ShowAsync<RankUpsertDialog>("", new DialogParameters { ["Rank"] = _rank });
+        var result = await dialog.Result;
+        if (!(result?.Canceled ?? true)) {
+            if (result.Data is RankUpsertDialog.Result.Deleted) {
+                NavigationManager.NavigateTo("/ranks");
+            } else {
+                _rank = await RankService.GetByIdAsync(RankId);
+            }
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!_noRank) return;
+        _noRank = false;
+        Snackbar.Add("Rank does not exist", Severity.Error);
+        NavigationManager.NavigateTo("/ranks", false, true);
+    }
+}

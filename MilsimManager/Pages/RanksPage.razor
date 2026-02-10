@@ -1,0 +1,105 @@
+﻿@page "/ranks"
+@attribute [Authorize(Policy = "Active")]
+@inject NavigationManager NavigationManager
+@inject IRankService RankService
+@inject IDialogService DialogService
+
+<MudStack Spacing="2">
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.FlexStart">
+        <MudButton Class="pa-1" Variant="Variant.Filled" Size="Size.Medium">
+            <MudTextField @bind-Value="_search"
+                          Placeholder="Search..."
+                          Immediate="true"
+                          DebounceInterval="300"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"
+                          AutoFocus="true"
+                          Underline="false"/>
+        </MudButton>
+        <AuthorizeView Policy="Admin">
+            <MudButton Variant="Variant.Filled" Size="Size.Medium" OnClick="@OpenCreateDialog">
+                Create New Rank
+            </MudButton>
+        </AuthorizeView>
+    </MudStack>
+
+    <MudTable T="Rank"
+              Items="_ranks"
+              Filter="FilterRanks"
+              Hover="true"
+              Dense="true"
+              Loading="_loading"
+              RowClass="cursor-pointer"
+              OnRowClick="OnRowClick">
+        <ColGroup>
+            <col style="width: 72px;"/>
+        </ColGroup>
+        <HeaderContent>
+            <MudTh>Ranks</MudTh>
+            <MudTh/>
+        </HeaderContent>
+
+        <RowTemplate>
+            <MudTd Class="d-flex align-center pa-3">
+                <MudImage Class="rounded" Src="https://picsum.photos/1000" Width="100" Height="100"
+                          ObjectFit="ObjectFit.Cover"/>
+            </MudTd>
+            <MudTd DataLabel="Name">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h5">@context.Name</MudText>
+                    @if (!string.IsNullOrWhiteSpace(context.Abbreviation) || !string.IsNullOrWhiteSpace(context.Code)) {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            @context.Abbreviation
+                            @if (!string.IsNullOrWhiteSpace(context.Abbreviation) && !string.IsNullOrWhiteSpace(context.Code)) {
+                                @(" | ")
+                            }
+                            @context.Code
+                        </MudText>
+                    }
+                </MudStack>
+            </MudTd>
+        </RowTemplate>
+
+        <NoRecordsContent>
+            <MudText>No ranks found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<Rank> _ranks = [];
+    private bool _loading;
+    private string? _search;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync() {
+        _loading = true;
+        try {
+            _ranks = await RankService.GetAllAsync();
+        } finally {
+            _loading = false;
+        }
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<Rank> args) {
+        if (_loading) return;
+        NavigationManager.NavigateTo($"/ranks/{args.Item?.Id}");
+    }
+
+    private bool FilterRanks(Rank rank) {
+        if (string.IsNullOrWhiteSpace(_search)) return true;
+        var term = _search.Trim();
+        return rank.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+               (rank.Abbreviation?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (rank.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (rank.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private async Task OpenCreateDialog() {
+        var dialog = await DialogService.ShowAsync<RankUpsertDialog>("");
+        var result = await dialog.Result;
+        if (!(result?.Canceled ?? true)) await ReloadAsync();
+    }
+}

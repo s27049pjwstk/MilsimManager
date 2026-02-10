@@ -17,7 +17,8 @@
 } else {
     <MudStack Row="true" Spacing="4">
         <MudStack Style="width: 16vw; min-width: 300px; max-width: 400px;">
-            <ProfileImageButton Src="https://picsum.photos/1000" Elevation="2" Ripple="@_isSelf" OnClick="@OnEditProfileImageClick"/>
+            <ProfileImageButton Src="https://picsum.photos/1000" Elevation="2" Ripple="@(_isSelf || _isAdmin)"
+                                OnClick="@OnEditProfileImageClick"/>
 
             <MudPaper Class="py-1" Elevation="2">
                 @*todo navigation to rank page*@
@@ -25,28 +26,34 @@
 
 
                 <MudDivider/>
-                <MudStack Row="true">
-                    <MudStack Class="d-flex flex-grow-1 px-2 py-1" AlignItems="AlignItems.Center"
-                              Justify="Justify.Center" Spacing="0">
-                        <MudText Align="Align.Center" Typo="Typo.h6">@_user.Rank?.Name</MudText>
-                        <MudText Typo="Typo.body2">
-                            @if (!string.IsNullOrWhiteSpace(_user.Rank?.Code)) {
-                                @_user.Rank.Code
-                                @if (!string.IsNullOrWhiteSpace(_user.Rank.Abbreviation)) {
-                                    @(" | ")
+                <MudButton FullWidth="true" Variant="Variant.Text" Class="pa-0 justify-start rounded-0"
+                           Ripple="@(_user.Rank is not null)"
+                           OnClick="@(() => {
+                                        if (_user.Rank is not null) NavigationManager.NavigateTo($"/ranks/{_user.Rank.Id}");
+                                    })">
+                    <MudStack Row="true" Class="flex-grow-1">
+                        <MudStack Class="d-flex flex-grow-1 px-2 py-1" AlignItems="AlignItems.Center"
+                                  Justify="Justify.Center" Spacing="0">
+                            <MudText Align="Align.Center" Typo="Typo.h6">@_user.Rank?.Name</MudText>
+                            <MudText Typo="Typo.body2">
+                                @if (!string.IsNullOrWhiteSpace(_user.Rank?.Code)) {
+                                    @_user.Rank.Code
+                                    @if (!string.IsNullOrWhiteSpace(_user.Rank.Abbreviation)) {
+                                        @(" | ")
+                                    }
                                 }
-                            }
-                            @_user?.Rank?.Abbreviation
-                        </MudText>
-                    </MudStack>
-                    <AuthorizeView Policy="Admin">
-                        <MudStack Class="justify-center pa-2">
-                            <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
-                                           OnClick="@OnEditRankClick"/>
-                            @*todo this button like this or instead as a button fullwidth under the whole rank mudpaper*@
+                                @_user?.Rank?.Abbreviation
+                            </MudText>
                         </MudStack>
-                    </AuthorizeView>
-                </MudStack>
+                        <AuthorizeView Policy="Admin">
+                            <MudStack Class="justify-center pa-2">
+                                <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
+                                               OnClick="@OnEditRankClick"/>
+                                @*todo this button like this or instead as a button fullwidth under the whole rank mudpaper*@
+                            </MudStack>
+                        </AuthorizeView>
+                    </MudStack>
+                </MudButton>
 
             </MudPaper>
             <MudPaper Class="py-1" Elevation="2">
