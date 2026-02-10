@@ -195,6 +195,11 @@ if (app.Environment.IsDevelopment()) {
 }
 
 if (!app.Environment.IsDevelopment()) {
+    using var scope = app.Services.CreateScope();
+    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<Context>>();
+    await using var db = await dbFactory.CreateDbContextAsync();
+    await db.Database.MigrateAsync();
+
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
