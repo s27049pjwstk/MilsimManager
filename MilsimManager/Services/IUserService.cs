@@ -5,7 +5,6 @@ namespace MilsimManager.Services;
 public interface IUserService {
     Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<List<User>> GetAllAsync(string? search = null, CancellationToken cancellationToken = default);
-    Task<List<Rank>> GetRanksAsync(string? search = null, CancellationToken cancellationToken = default);
     Task<uint> UpdateAssignmentAsync(int userId, uint version, int? unitId, string? unitRole, User approvedBy, CancellationToken cancellationToken = default);
     Task<uint> UpdateNoteAsync(int userId, uint version, string? note, CancellationToken cancellationToken = default);
     Task<uint> UpdateRankAsync(int userId, uint version, int? rankId, User approvedBy, CancellationToken cancellationToken = default);

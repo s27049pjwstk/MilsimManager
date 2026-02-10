@@ -1,5 +1,6 @@
 ﻿@inject IErrorHandler ErrorHandler
 @inject IUserService UserService
+@inject IRankService RankService
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -49,7 +50,7 @@
 
     protected override async Task OnParametersSetAsync() {
         _selectedRank = User.Rank;
-        _ranks = await UserService.GetRanksAsync();
+        _ranks = await RankService.GetAllAsync();
     }
 
     private static string GetRankLabel(Rank rank) =>

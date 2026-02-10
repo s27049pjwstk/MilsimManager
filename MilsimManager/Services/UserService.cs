@@ -40,25 +40,6 @@ public class UserService(IDbContextFactory<Context> dbFactory) : IUserService {
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<Rank>> GetRanksAsync(string? search = null, CancellationToken cancellationToken = default) {
-        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-
-        var q = db.Ranks.AsNoTracking().AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(search)) {
-            search = search.Trim().ToLower();
-            q = q.Where(r =>
-                r.Name.ToLower().Contains(search) ||
-                r.Abbreviation != null && r.Abbreviation.ToLower().Contains(search) ||
-                r.Code != null && r.Code.ToLower().Contains(search));
-        }
-
-        return await q
-            .OrderBy(r => r.SortOrder)
-            .ThenBy(r => r.Name)
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<uint> UpdateAssignmentAsync(
         int userId,
         uint version,
