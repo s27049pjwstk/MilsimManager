@@ -17,14 +17,12 @@
 } else {
     <MudStack Row="true" Spacing="4">
         <MudStack Style="width: 16vw; min-width: 300px; max-width: 400px;">
-            <ProfileImageButton Src="@PlaceholderImageExtensions.GetImageUrl($"user-{UserId}")" Elevation="2" Ripple="@(_isSelf || _isAdmin)"
+            <ProfileImageButton Src="@PlaceholderImageExtensions.GetImageUrl($"user-{UserId}")" Elevation="2"
+                                Ripple="@(_isSelf || _isAdmin)"
                                 OnClick="@OnEditProfileImageClick"/>
 
             <MudPaper Class="py-1" Elevation="2">
-                @*todo navigation to rank page*@
                 <MudText Typo="Typo.caption" Class="px-2 mud-text-secondary">Rank</MudText>
-
-
                 <MudDivider/>
                 <MudButton FullWidth="true" Variant="Variant.Text" Class="pa-0 justify-start rounded-0"
                            Ripple="@(_user.Rank is not null)"
@@ -49,7 +47,6 @@
                             <MudStack Class="justify-center pa-2">
                                 <MudIconButton Class="pa-2" Size="Size.Small" Icon="@Icons.Material.Filled.Edit"
                                                OnClick="@OnEditRankClick"/>
-                                @*todo this button like this or instead as a button fullwidth under the whole rank mudpaper*@
                             </MudStack>
                         </AuthorizeView>
                     </MudStack>
@@ -72,13 +69,6 @@
                                        Disabled="@_statusUpdateDisabled"
                                        Icon="@Icons.Material.Filled.Cached"
                                        OnClick="@OnToggleActiveClick"/>
-                    }
-                    @if (_isSelf) {
-                        <MudIconButton Class="pa-2 ml-1"
-                                       Size="Size.Small"
-                                       Disabled="@_statusUpdateDisabled"
-                                       Icon="@Icons.Material.Filled.Edit"
-                                       OnClick="@OnEditLoaClick"/>
                     }
                 </MudButton>
                 <MudButton FullWidth="true" Variant="Variant.Text" Class="justify-start rounded-0"
@@ -228,8 +218,6 @@
                             </NoRecordsContent>
                         </MudTable>
                     </MudTabPanel>
-                    @*todo add maybe later filtering/sorting using https://mudblazor.com/components/datagrid#default-data-grid*@
-                    @*todo add search func maybe?*@
                     <MudTabPanel Text="Events">
                         <MudTable Items="@(_user.UserAttendances.OrderByDescending(x => x.Event.Date))"
                                   Dense="true" Hover="true" Elevation="0">
@@ -364,7 +352,7 @@
 
     private static Color GetStatusColor(string? status) => status switch {
         "LOA" => Color.Primary, "Active" => Color.Success, _ => Color.Dark
-    };//todo move this to model or a extension later?
+    };
 
     private async Task OnEditAssignmentClick() {
         if (_user is null) return;
@@ -464,11 +452,6 @@
 
     private void OnEditProfileImageClick() {
         if (!_isSelf) return;
-        Snackbar.Add("Not implemented", Severity.Warning);
-        //todo NotImplemented
-    }
-
-    private void OnEditLoaClick() {
         Snackbar.Add("Not implemented", Severity.Warning);
         //todo NotImplemented
     }
