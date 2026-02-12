@@ -16,7 +16,6 @@
                           AutoFocus="true"
                           Underline="false"/>
         </MudButton>
-        <MudButton Variant="Variant.Filled" OnClick="@ReloadAsync">Reload</MudButton> @*todo remove this at some point or add it to all pages*@
     </MudStack>
 
     <MudTable T="User"
@@ -71,9 +70,7 @@
     private bool _loading;
     private string? _search;
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
-
-    private async Task ReloadAsync() {
+    protected override async Task OnInitializedAsync() {
         _loading = true;
         try {
             _users = await UserService.GetAllAsync();

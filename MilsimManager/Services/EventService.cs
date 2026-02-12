@@ -37,6 +37,8 @@ public class EventService(IDbContextFactory<Context> dbFactory) : IEventService 
 
     public async Task<Event> CreateAsync(string name, string? description, DateTime date, CancellationToken cancellationToken = default) {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        if (date.ToUniversalTime() < DateTime.UtcNow)
+            throw new AppException("Event date cannot be in the past");
 
         var ev = new Event {
             Name = string.IsNullOrEmpty(name) ? throw new AppException("Name is required") : name.Trim(),
@@ -60,6 +62,8 @@ public class EventService(IDbContextFactory<Context> dbFactory) : IEventService 
 
     public async Task<Event> UpdateAsync(int id, uint version, string name, string? description, DateTime date, CancellationToken cancellationToken = default) {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        if (date.ToUniversalTime() < DateTime.UtcNow)
+            throw new AppException("Event date cannot be in the past");
 
         Event ev;
         try {
@@ -105,10 +109,13 @@ public class EventService(IDbContextFactory<Context> dbFactory) : IEventService 
     public async Task AttendAsync(int eventId, int userId, CancellationToken cancellationToken = default) {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
 
-        var evExists = await db.Events
+        var eventDate = await db.Events
             .AsNoTracking()
-            .AnyAsync(e => e.Id == eventId, cancellationToken);
-        if (!evExists) throw new AppException("Event not found");
+            .Where(e => e.Id == eventId)
+            .Select(e => (DateTime?)e.Date)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (eventDate is null) throw new AppException("Event not found");
+        if (eventDate.Value <= DateTime.UtcNow) throw new AppException("Cannot change attendance for past events");
 
         var userExists = await db.Users
             .AsNoTracking()
@@ -134,6 +141,13 @@ public class EventService(IDbContextFactory<Context> dbFactory) : IEventService 
 
     public async Task UnattendAsync(int eventId, int userId, CancellationToken cancellationToken = default) {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        var eventDate = await db.Events
+            .AsNoTracking()
+            .Where(e => e.Id == eventId)
+            .Select(e => (DateTime?)e.Date)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (eventDate is null) throw new AppException("Event not found");
+        if (eventDate.Value <= DateTime.UtcNow) throw new AppException("Cannot change attendance for past events");
 
         var link = await db.UserAttendances
             .SingleOrDefaultAsync(ua => ua.EventId == eventId && ua.UserId == userId, cancellationToken);

@@ -71,7 +71,7 @@ public class UserService(IDbContextFactory<Context> dbFactory) : IUserService {
         db.UnitAssignmentLogs.Add(new UnitAssignmentLog {
             User = user,
             Unit = unit,
-            UnitName = unit?.Name ?? "None",//todo maybe model needs adjustment here?
+            UnitName = unit?.Name ?? "None",
             UnitAbbreviation = unit?.Abbreviation ?? string.Empty,
             Role = unitRole ?? string.Empty,
             ApprovedById = approvedBy.Id,

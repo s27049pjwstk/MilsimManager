@@ -219,8 +219,11 @@
                         </MudTable>
                     </MudTabPanel>
                     <MudTabPanel Text="Events">
-                        <MudTable Items="@(_user.UserAttendances.OrderByDescending(x => x.Event.Date))"
-                                  Dense="true" Hover="true" Elevation="0">
+                        <MudTable T="UserAttendance"
+                                  Items="@(_user.UserAttendances.OrderByDescending(x => x.Event.Date))"
+                                  Dense="true" Hover="true" Elevation="0"
+                                  RowClass="cursor-pointer"
+                                  OnRowClick="@OnEventRowClick">
                             <HeaderContent>
                                 <MudTh>Date</MudTh>
                                 <MudTh>Event</MudTh>
@@ -235,8 +238,11 @@
                         </MudTable>
                     </MudTabPanel>
                     <MudTabPanel Text="Ranks">
-                        <MudTable Items="@_user.RankLogs.OrderByDescending(x => x.Date)"
-                                  Dense="true" Hover="true" Elevation="0">
+                        <MudTable T="RankLog"
+                                  Items="@_user.RankLogs.OrderByDescending(x => x.Date)"
+                                  Dense="true" Hover="true" Elevation="0"
+                                  RowClass="cursor-pointer"
+                                  OnRowClick="@OnRankRowClick">
                             <HeaderContent>
                                 <MudTh>Date</MudTh>
                                 <MudTh>Rank</MudTh>
@@ -252,8 +258,11 @@
                     </MudTabPanel>
 
                     <MudTabPanel Text="Assignments">
-                        <MudTable Items="@_user.UnitAssignmentLogs.OrderByDescending(x => x.Date)"
-                                  Dense="true" Hover="true" Elevation="0">
+                        <MudTable T="UnitAssignmentLog"
+                                  Items="@_user.UnitAssignmentLogs.OrderByDescending(x => x.Date)"
+                                  Dense="true" Hover="true" Elevation="0"
+                                  RowClass="cursor-pointer"
+                                  OnRowClick="@OnAssignmentRowClick">
                             <HeaderContent>
                                 <MudTh>Date</MudTh>
                                 <MudTh>Unit</MudTh>
@@ -387,6 +396,19 @@
 
     private void OnAwardRowClick(TableRowClickEventArgs<UserAward> args) =>
         NavigationManager.NavigateTo($"/awards/{args.Item?.AwardId}");
+
+    private void OnEventRowClick(TableRowClickEventArgs<UserAttendance> args) =>
+        NavigationManager.NavigateTo($"/events/{args.Item?.EventId}");
+
+    private void OnRankRowClick(TableRowClickEventArgs<RankLog> args) {
+        if (args.Item?.RankId is null) return;
+        NavigationManager.NavigateTo($"/ranks/{args.Item.RankId}");
+    }
+
+    private void OnAssignmentRowClick(TableRowClickEventArgs<UnitAssignmentLog> args) {
+        if (args.Item?.UnitId is null) return;
+        NavigationManager.NavigateTo($"/units/{args.Item.UnitId}");
+    }
 
     private async Task OnRemoveUserCertificationClick(UserCertification userCertification) {
         if (_user is null) return;

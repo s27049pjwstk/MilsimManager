@@ -1,0 +1,161 @@
+﻿@inject IErrorHandler ErrorHandler
+@inject IEventService EventService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">
+            @(Event is null ? "Create New Event" : "Edit Event")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" Disabled="_disabled">
+            <MudTextField @bind-Value="_dto.Name"
+                          Label="Name"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="128"
+                          Validation="@ValidateNameAsync"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          Required="true"/>
+            <MudTextField T="DateTime?"
+                          @bind-Value="_dto.DateTimeLocal"
+                          Format="s"
+                          Label="Date"
+                          InputType="InputType.DateTimeLocal"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Validation="@ValidateDateTimeLocal"
+                          Required="true"/>
+            <MudTextField @bind-Value="_dto.Description"
+                          Label="Description"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          MaxLength="2000"
+                          AutoGrow="true"
+                          Lines="4"/>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@MudDialog.Cancel">Cancel</MudButton>
+        @if (Event is not null) {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       Disabled="_disabled"
+                       OnClick="@DeleteAsync">
+                Delete
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_disabled" OnClick="@SaveAsync">
+            @(Event is null ? "Create" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public Event? Event { get; set; }
+
+    public enum Result {
+        Created,
+        Updated,
+        Deleted,
+        Failed
+    }
+
+    private MudForm _form = null!;
+    private bool _disabled;
+    private EventDto _dto = new();
+
+    private sealed class EventDto {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime? DateTimeLocal { get; set; }
+    }
+
+    protected override void OnParametersSet() {
+        if (Event is null) {
+            _dto = new EventDto();
+            return;
+        }
+
+        _dto = new EventDto {
+            Name = Event.Name,
+            Description = Event.Description,
+            DateTimeLocal = Event.Date.ToLocalTime()
+        };
+    }
+
+    private async Task<string?> ValidateNameAsync(string? name) {
+        if (name is null) return null;
+        if (await EventService.NameExistsAsync(name.Trim(), Event?.Id))
+            return "An event with this name already exists";
+        return null;
+    }
+
+    private static string? ValidateDateTimeLocal(DateTime? dateTimeLocal) {
+        if (dateTimeLocal is null) return "Date is required";
+
+        var local = DateTime.SpecifyKind(dateTimeLocal.Value, DateTimeKind.Local);
+        return local.ToUniversalTime() < DateTime.UtcNow ? "Event date cannot be in the past" : null;
+    }
+
+    private async Task SaveAsync() {
+        _dto.Name = _dto.Name.Trim();
+        _dto.Description = _dto.Description?.Trim();
+        await _form.Validate();
+        if (!_form.IsValid) return;
+        if (_dto.DateTimeLocal is null) return;
+
+        var local = DateTime.SpecifyKind(_dto.DateTimeLocal.Value, DateTimeKind.Local);
+        var utc = local.ToUniversalTime();
+
+        _disabled = true;
+        try {
+            if (Event is null) {
+                var created = await EventService.CreateAsync(_dto.Name, _dto.Description, utc);
+                Snackbar.Add($"Event {created.Name} created", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(Result.Created));
+            } else {
+                var updated = await EventService.UpdateAsync(Event.Id, Event.Version, _dto.Name, _dto.Description, utc);
+                Snackbar.Add($"Event {updated.Name} updated", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(Result.Updated));
+            }
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, Event is null ? "Failed to create event" : "Failed to update event");
+            MudDialog.Close(DialogResult.Ok(Result.Failed));
+        } finally {
+            _disabled = false;
+        }
+    }
+
+    private async Task DeleteAsync() {
+        if (Event is null) return;
+        var confirm = await DialogService.ShowMessageBox(
+        "Delete Event",
+        $"Are you sure you want to delete {Event.Name}?",
+        "Delete",
+        "Cancel",
+        options: new DialogOptions { FullWidth = false }
+        );
+
+        if (confirm != true) return;
+
+        _disabled = true;
+        try {
+            await EventService.DeleteAsync(Event.Id);
+            Snackbar.Add("Event deleted", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(Result.Deleted));
+        } catch (Exception ex) {
+            ErrorHandler.HandleException(ex, "Failed to delete event");
+            MudDialog.Close(DialogResult.Ok(Result.Failed));
+        } finally {
+            _disabled = false;
+        }
+    }
+}
