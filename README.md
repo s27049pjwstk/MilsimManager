@@ -9,9 +9,7 @@ The goal is to replace scattered spreadsheets/tools with a single, consistent sy
 
 #### [Figma (Prototype)](https://www.figma.com/proto/vFjFr9PPCNHk5uJG9aM232/s27049-In%C5%BCynierka?node-id=0-1&t=cROPkyiHY8S6ULIx-1)
 
-#### [Documentation Old(PL)](https://docs.google.com/document/d/1udkuULUKaUg7J7WusQ99-a9FhwgT6Xjgi20UDkHG1Eg/edit?usp=sharing)
-
-#### [Documentation New(PL)](https://docs.google.com/document/d/1jBuzZ__5g5zW6iylK1n6S802bRqPrOCK/edit?usp=sharing&ouid=105549434782914588857&rtpof=true&sd=true)
+#### [Documentation(PL)](https://docs.google.com/document/d/1jBuzZ__5g5zW6iylK1n6S802bRqPrOCK/edit?usp=sharing&ouid=105549434782914588857&rtpof=true&sd=true)
 
 ## Tech stack
 
