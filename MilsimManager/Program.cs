@@ -65,12 +65,6 @@ var authenticationBuilder = builder.Services.AddAuthentication(options => {
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(4);
 
-        /* todo fixme issue
-            If I open two separate tabs that Im logged in on and I logout on one of them, I dont get logged out on the other ones
-            see here for what to possibly do:
-            https://learn.microsoft.com/en-us/aspnet/core/blazor/security/?view=aspnetcore-8.0&tabs=net-cli
-        */
-
         options.Events = new CookieAuthenticationEvents {
             OnValidatePrincipal = async context => {
                 var userIdRaw = context.Principal?.FindFirstValue("auth_UserId");
@@ -118,7 +112,6 @@ if (envAuthDiscordEnabled)
 
         options.Scope.Clear();
         options.Scope.Add("identify");
-        // options.SaveTokens = true; //todo this might be needed later for steam connection
 
         options.Events = new OAuthEvents {
             OnCreatingTicket = async context => {

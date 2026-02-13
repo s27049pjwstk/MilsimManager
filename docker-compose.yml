@@ -7,8 +7,6 @@
       POSTGRES_DB: milsimmanager
     ports:
       - "5432:5432"
-    # volumes:
-    #   - milsimmanager-db:/var/lib/postgresql/data
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
@@ -16,6 +14,3 @@
       interval: 2s
       timeout: 3s
       retries: 20
-
-#volumes:
-#  milsimmanager-db:
