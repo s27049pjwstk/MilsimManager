@@ -1,2 +1,120 @@
 ﻿@page "/"
 @attribute [Authorize]
+@inject IEventService EventService
+@inject IRankService RankService
+
+<MudGrid Spacing="2">
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4">
+            <MudText Class="pb-2" Typo="Typo.h5">Recent Rank Changes</MudText>
+            <MudDivider Class="py-2"/>
+            @if (_loadingRankChanges) {
+                <MudStack Class="py-4" AlignItems="AlignItems.Center" Justify="Justify.Center">
+                    <MudProgressCircular Indeterminate="true"/>
+                </MudStack>
+            } else if (_recentRankChanges.Count == 0) {
+                <MudText Class="pt-2 mud-text-secondary d-flex align-center justify-center">
+                    No recent rank changes.
+                </MudText>
+            } else {
+                <MudStack Spacing="2">
+                    @foreach (var log in _recentRankChanges) {
+                        <MudButton FullWidth="true" Href="@($"/users/{log.UserId}")">
+                            <MudStack Class="d-flex flex-grow-1" Justify="Justify.FlexStart" Row="true" Spacing="2"
+                                      AlignItems="AlignItems.Center">
+                                <MudImage Class="rounded"
+                                          Src="@PlaceholderImageExtensions.GetImageUrl($"rank-{log.RankId}")"
+                                          Width="100"
+                                          Height="100"
+                                          ObjectFit="ObjectFit.Cover"/>
+                                <MudStack Class="pl-1" Justify="Justify.FlexStart" Spacing="0">
+                                    <MudText Align="Align.Start" Typo="Typo.h6">
+                                        @log.User.Name changed rank to @(log.Rank?.Name ?? log.RankName)
+                                    </MudText>
+                                    <MudText Align="Align.Start" Typo="Typo.body2" Class="mud-text-secondary">
+                                        @DateToFullLocal(log.Date)
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                        </MudButton>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4">
+            <MudText Class="pb-2" Typo="Typo.h5">Upcoming Events</MudText>
+            <MudDivider Class="py-2"/>
+            @if (_loadingEvents) {
+                <MudStack Class="pt-4" AlignItems="AlignItems.Center" Justify="Justify.Center">
+                    <MudProgressCircular Indeterminate="true"/>
+                </MudStack>
+            } else if (_upcomingEvents.Count == 0) {
+                <MudText Class="pt-2 mud-text-secondary d-flex align-center justify-center">
+                    No upcoming events.
+                </MudText>
+            } else {
+                <MudStack Spacing="2">
+                    @foreach (var ev in _upcomingEvents) {
+                        <MudButton FullWidth="true" Href="@($"/events/{ev.Id}")">
+                            <MudStack Class="d-flex flex-grow-1" Justify="Justify.FlexStart" Row="true" Spacing="2"
+                                      AlignItems="AlignItems.Center">
+                                <MudImage Class="rounded"
+                                          Src="@PlaceholderImageExtensions.GetImageUrl($"event-{ev.Id}")"
+                                          Width="176"
+                                          Height="100"
+                                          ObjectFit="ObjectFit.Cover"/>
+                                <MudStack Class="pl-1" Spacing="0">
+                                    <MudText Align="Align.Start" Typo="Typo.h5">@ev.Name</MudText>
+                                    <MudText Align="Align.Start" Typo="Typo.body2" Class="mud-text-secondary">
+                                        @DateToFullLocal(ev.Date)
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                        </MudButton>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<RankLog> _recentRankChanges = [];
+    private List<Event> _upcomingEvents = [];
+    private bool _loadingRankChanges = true;
+    private bool _loadingEvents = true;
+
+    protected override async Task OnInitializedAsync() {
+        await Task.WhenAll(
+        LoadRecentRankChangesAsync(),
+        LoadUpcomingEventsAsync()
+        );
+    }
+
+    private async Task LoadRecentRankChangesAsync() {
+        _loadingRankChanges = true;
+        try {
+            _recentRankChanges = await RankService.GetRecentChangesAsync();
+        } finally {
+            _loadingRankChanges = false;
+        }
+    }
+
+    private async Task LoadUpcomingEventsAsync() {
+        _loadingEvents = true;
+        try {
+            _upcomingEvents = await EventService.GetUpcomingAsync();
+        } finally {
+            _loadingEvents = false;
+        }
+    }
+
+    private static string DateToFullLocal(DateTime dateTime) {
+        var dateLocal = dateTime.ToLocalTime();
+        return $"{dateLocal:dd/MM/yyyy HH:mm} ({dateLocal.TimeRelative()})";
+    }
+
+}

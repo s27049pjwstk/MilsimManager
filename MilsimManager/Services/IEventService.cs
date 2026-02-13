@@ -4,6 +4,7 @@ namespace MilsimManager.Services;
 
 public interface IEventService {
     Task<List<Event>> GetAllAsync(string? search = null, CancellationToken cancellationToken = default);
+    Task<List<Event>> GetUpcomingAsync(CancellationToken cancellationToken = default);
     Task<Event?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Event> CreateAsync(string name, string? description, DateTime date, CancellationToken cancellationToken = default);
     Task<Event> UpdateAsync(int id, uint version, string name, string? description, DateTime date, CancellationToken cancellationToken = default);

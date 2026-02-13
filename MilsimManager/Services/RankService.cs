@@ -25,6 +25,17 @@ public class RankService(IDbContextFactory<Context> dbFactory) : IRankService {
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<RankLog>> GetRecentChangesAsync(CancellationToken cancellationToken = default) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        return await db.RankLogs
+            .AsNoTracking()
+            .Where(l => l.Date >= DateTime.UtcNow.AddDays(-7))
+            .Include(l => l.User)
+            .OrderByDescending(l => l.Date)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Rank?> GetByIdAsync(int id, CancellationToken cancellationToken = default) {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
 

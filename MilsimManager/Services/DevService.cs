@@ -65,8 +65,10 @@ public class DevService(IDbContextFactory<Context> dbFactory) : IDevService {
         db.RankLogs.AddRange(
         new RankLog { User = u1, Rank = rankCpl, RankName = rankCpl.Name, Date = today.AddDays(-200) },
         new RankLog { User = u1, Rank = rankSgt, RankName = rankSgt.Name, Date = today.AddDays(-90) },
+        new RankLog { User = u1, Rank = rankSsg, RankName = rankSsg.Name, Date = today.AddDays(-3) },
         new RankLog { User = u2, Rank = rankPvt, RankName = rankPvt.Name, Date = today.AddDays(-220) },
         new RankLog { User = u2, Rank = rankCpl, RankName = rankCpl.Name, Date = today.AddDays(-120) },
+        new RankLog { User = u2, Rank = rankSgt, RankName = rankSgt.Name, Date = today.AddDays(-5) },
         new RankLog { User = u3, Rank = rankPvt, RankName = rankPvt.Name, Date = today.AddDays(-120) },
         new RankLog { User = u4, Rank = rankPvt, RankName = rankPvt.Name, Date = today.AddDays(-60) }
         );

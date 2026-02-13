@@ -21,6 +21,17 @@ public class EventService(IDbContextFactory<Context> dbFactory) : IEventService 
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<Event>> GetUpcomingAsync(CancellationToken cancellationToken = default) {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+        return await db.Events
+            .AsNoTracking()
+            .Where(e => e.Date >= now && e.Date <= now.AddDays(30))
+            .OrderBy(e => e.Date)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Event?> GetByIdAsync(int id, CancellationToken cancellationToken = default) {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
 

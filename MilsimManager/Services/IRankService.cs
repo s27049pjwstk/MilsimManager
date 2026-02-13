@@ -4,6 +4,7 @@ namespace MilsimManager.Services;
 
 public interface IRankService {
     Task<List<Rank>> GetAllAsync(string? search = null, CancellationToken cancellationToken = default);
+    Task<List<RankLog>> GetRecentChangesAsync(CancellationToken cancellationToken = default);
     Task<Rank?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Rank> CreateAsync(string name, string? abbreviation, string? code, string? description, CancellationToken cancellationToken = default);
     Task<Rank> UpdateAsync(int id, uint version, string name, string? abbreviation, string? code, string? description, CancellationToken cancellationToken = default);
