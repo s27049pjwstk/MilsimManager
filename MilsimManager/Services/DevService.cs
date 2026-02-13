@@ -16,13 +16,12 @@ public class DevService(IDbContextFactory<Context> dbFactory) : IDevService {
     public async Task SeedAsync() {
         await using var db = await dbFactory.CreateDbContextAsync();
 
+        await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
         await SeedExampleDataAsync(db);
     }
 
     private static async Task SeedExampleDataAsync(Context db) {
-        if (await db.Users.AnyAsync()) return;
-
         var today = DateTime.UtcNow.Date;
 
         var unitCmd = new Unit { Name = "Command", Abbreviation = "HQ", Description = "Command and admin." };
