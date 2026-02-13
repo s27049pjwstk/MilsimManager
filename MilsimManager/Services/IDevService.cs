@@ -2,4 +2,5 @@
 
 public interface IDevService {
     Task ResetAsync();
+    Task SeedAsync();
 }

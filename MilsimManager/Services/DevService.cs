@@ -13,6 +13,13 @@ public class DevService(IDbContextFactory<Context> dbFactory) : IDevService {
         await SeedExampleDataAsync(db);
     }
 
+    public async Task SeedAsync() {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        await db.Database.MigrateAsync();
+        await SeedExampleDataAsync(db);
+    }
+
     private static async Task SeedExampleDataAsync(Context db) {
         if (await db.Users.AnyAsync()) return;
 
